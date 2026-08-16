@@ -27,6 +27,25 @@ type ZipEntry = {
 const encoder = new TextEncoder();
 let crcTable: Uint32Array | null = null;
 
+/**
+ * Raw .xlsx bytes. The background service worker has no
+ * `URL.createObjectURL`, so it needs the bytes to build a `data:` URL rather
+ * than a Blob URL.
+ */
+export function buildXlsxBytes(input: SpreadsheetInput): Uint8Array {
+  const sheets = normalizeWorkbook(input);
+  const entries: ZipEntry[] = [
+    xmlEntry("[Content_Types].xml", buildContentTypesXml(sheets.length)),
+    xmlEntry("_rels/.rels", buildRootRelsXml()),
+    xmlEntry("xl/workbook.xml", buildWorkbookXml(sheets.map((sheet) => sheet.name))),
+    xmlEntry("xl/_rels/workbook.xml.rels", buildWorkbookRelsXml(sheets.length)),
+    ...sheets.map((sheet, index) =>
+      xmlEntry(`xl/worksheets/sheet${index + 1}.xml`, buildSheetXml(sheet.rows))
+    ),
+  ];
+  return buildZip(entries);
+}
+
 export function buildXlsxFile(input: SpreadsheetInput): Blob {
   const sheets = normalizeWorkbook(input);
   const entries: ZipEntry[] = [

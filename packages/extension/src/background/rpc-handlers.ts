@@ -24,9 +24,15 @@ import {
 } from "./storage/tools";
 import { classifyTool } from "@/sidepanel/chat/severity";
 import { registerInjectMain } from "./recorder/host";
+import { registerCaptureDeps } from "./bg-tools/capture";
+import { META_TOOLS, isMetaTool } from "./meta-tool-router";
 
 // Wired here rather than imported by the host to avoid a circular import.
 registerInjectMain((tabId, source, args) => injectMainWorld(tabId, source, args));
+registerCaptureDeps({
+  runStep: ({ step, tabId, attachedTabIds, bindings }) =>
+    runOneStep(step, tabId, attachedTabIds ?? [], bindings ?? {})
+});
 
 async function readLlmSettings(): Promise<{
   selfHealEnabled: boolean;
@@ -203,6 +209,17 @@ export async function runOneStep(
   }
   if (targetTabId !== rpcTabId && !attachedTabIds.includes(targetTabId)) {
     throw new Error(`tab ${targetTabId} not attached; call attachTab first or omit tabId`);
+  }
+
+  // Meta tools run here in the service worker. Dispatching before the content
+  // script hop is what lets the coordinator / MCP EXEC path reach them; the
+  // side panel used to be the only caller that could.
+  if (step.kind === "tool" && isMetaTool(step.tool)) {
+    const metaArgs = {
+      ...((step.args ?? {}) as Record<string, Json>),
+      allowedTabIds: [rpcTabId, ...attachedTabIds]
+    } as unknown as Json;
+    return META_TOOLS[step.tool](metaArgs, targetTabId);
   }
 
   const stepReq = ContentRequestSchema.parse({
