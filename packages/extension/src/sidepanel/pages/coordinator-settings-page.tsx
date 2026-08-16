@@ -12,6 +12,10 @@ import {
   type CoordinatorConnectionState,
   type CoordinatorConfig
 } from "../../background/coordinator-state";
+import {
+  cdpRecorderEnabled,
+  setCdpRecorderEnabled
+} from "@/background/recorder/cdp-permission";
 
 const DEFAULT_WS_URL = "ws://localhost:8787/worker";
 const CONNECTION_STATUS_STALE_MS = 45_000;
@@ -55,6 +59,7 @@ export function CoordinatorSettingsPage() {
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [showToken, setShowToken] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [cdpEnabled, setCdpEnabled] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -75,6 +80,10 @@ export function CoordinatorSettingsPage() {
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 5_000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    void cdpRecorderEnabled().then(setCdpEnabled);
   }, []);
 
   useEffect(() => {
@@ -232,6 +241,31 @@ export function CoordinatorSettingsPage() {
           <br />
           <span className="text-xs text-gray-500">
             开启后，连接的 coordinator 可以在你的浏览器里运行任意工具。仅在你信任该 coordinator 时勾选。
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-start gap-2 border-t pt-3">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={cdpEnabled}
+          onChange={async (e) => {
+            // chrome.permissions.request must run inside the user gesture, so
+            // this is awaited directly in the handler rather than deferred.
+            const applied = await setCdpRecorderEnabled(e.target.checked);
+            setCdpEnabled(applied);
+            if (e.target.checked && !applied) setSavedMsg("未授予 debugger 权限，CDP 录制未开启");
+          }}
+        />
+        <span className="text-sm">
+          用 chrome.debugger 做全保真页面录制（CDP）
+          <br />
+          <span className="text-xs text-gray-500">
+            开启后 console / network / 弹窗的记录更完整：能拿到响应 body、脚本注入之前的日志、CORS 与
+            CSP 报错，弹窗也能真正挂起等待应答。代价：浏览器顶部会常驻「AtWebPilot 正在调试此浏览器」
+            提示条，且与 DevTools、其它调试类扩展互斥——被抢占时会自动退回默认录制并在结果里标出
+            degradedReason。需要单独授予 debugger 权限。
           </span>
         </span>
       </label>
