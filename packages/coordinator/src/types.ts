@@ -48,6 +48,12 @@ export interface Worker {
   fingerprint: WorkerFingerprint;
   /** What the worker can do. Different from session.scope (what current AI is allowed). */
   capabilities: ReadonlySet<Capability>;
+  /**
+   * Tool names this worker can execute. Undefined for workers predating
+   * Plan 32, which is meaningful: the server then advertises only the legacy
+   * surface rather than assuming full support.
+   */
+  supported_tools?: ReadonlySet<string>;
   attended: boolean;
   labels: ReadonlySet<string>;
   available_tabs: TabInfo[];

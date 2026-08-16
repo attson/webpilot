@@ -13,6 +13,7 @@ export default defineManifest({
   action: { default_title: "AtWebPilot" },
   side_panel: { default_path: "src/sidepanel/index.html" },
   background: { service_worker: "src/background/index.ts", type: "module" },
+  optional_permissions: ["debugger"],
   permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "webNavigation", "contextMenus", "bookmarks", "history", "downloads"],
   host_permissions: [
     "*://*.yangkeduo.com/*",
@@ -32,6 +33,18 @@ export default defineManifest({
         "src/content/widget/mount.ts"
       ],
       run_at: "document_idle"
+    },
+    {
+      // MAIN world so the recorder can see the page's own console / fetch /
+      // XMLHttpRequest / alert. Declared statically rather than registered
+      // dynamically because crxjs copies web_accessible_resources verbatim
+      // without transpiling, so a dynamically-registered .ts never runs.
+      // Consequence: the settings master switch means "uninstall the patches
+      // and stop draining", not "the script never loads".
+      matches: ["<all_urls>"],
+      js: ["src/content/recorder/main-world.ts"],
+      world: "MAIN",
+      run_at: "document_start"
     }
   ],
   web_accessible_resources: [

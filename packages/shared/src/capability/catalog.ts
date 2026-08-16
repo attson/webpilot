@@ -15,7 +15,11 @@ export const CAPABILITIES = [
   "httpRequest:cookied",
   "runJS:scanned",
   "runJS:unsafe",
-  "tab:open"
+  "tab:open",
+  // Plan 32 — page-event recorder
+  "read:console",
+  "read:network",
+  "read:network-body"
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -24,7 +28,8 @@ export type Capability = (typeof CAPABILITIES)[number];
 export const IMPLICIT_CAPABILITIES = new Set<Capability>([
   "read:dom",
   "read:image",
-  "nav:tab"
+  "nav:tab",
+  "read:console"
 ]);
 
 /** Capabilities that always require explicit human approval (dangerous). */
@@ -33,7 +38,9 @@ export const DANGEROUS_CAPABILITIES = new Set<Capability>([
   "submit:form",
   "upload:file",
   "httpRequest:cookied",
-  "runJS:unsafe"
+  "runJS:unsafe",
+  // response headers routinely carry Authorization / Set-Cookie / bearer tokens
+  "read:network-body"
 ]);
 
 export function isCapability(s: string): s is Capability {

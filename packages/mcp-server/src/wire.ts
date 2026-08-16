@@ -8,6 +8,7 @@ export function helloToWorker(h: Hello, now: number): Worker {
     id: h.worker_id,
     fingerprint: h.fingerprint,
     capabilities: new Set<Capability>(h.capabilities.filter(isCapability)),
+    supported_tools: h.supported_tools ? new Set(h.supported_tools) : undefined,
     attended: h.attended,
     labels: new Set(h.labels),
     available_tabs: h.available_tabs,

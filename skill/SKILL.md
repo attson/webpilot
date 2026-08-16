@@ -21,13 +21,24 @@ When this skill is loaded, you can drive any open tab through these tools
 
 | Class | Tools |
 |---|---|
-| 探查（safe） | `snapshotDOM`, `querySelector`, `querySelectorAll`, `extractText`, `extractImages`, `getValue`, `extractFormState`, `hover`, `focus` |
-| 流程（safe） | `scroll`, `waitFor` |
-| 交互（caution） | `click`, `fillInput`, `setCheckbox`, `selectOption` |
+| 探查（safe） | `snapshotDOM`, `takeSnapshot`, `findElements`, `querySelector`, `querySelectorAll`, `extractText`, `extractImages`, `getValue`, `extractFormState`, `getPageInfo`, `hover`, `focus` |
+| 页面索引（safe） | `createPageIndex`, `searchPageIndex`, `readPageBlock`, `extractPageFields` |
+| 流程（safe） | `scroll`, `waitFor`, `navigate`, `navigateBack`, `navigateForward`, `resize` |
+| 交互（caution） | `click`, `clickByUid`, `fillInput`, `fillByUid`, `fillForm`, `setCheckbox`, `selectOption`, `pressKey`, `drag`, `drop` |
+| 观察（safe → dangerous） | `consoleMessages`（safe）, `networkRequests`（caution）, `networkRequestDetail`（**dangerous**）, `handleDialog`, `recorderConfig` |
+| 视觉 | `screenshot`（支持 `fullPage` / `selector` / `blockId`） |
 | 网络（caution / dangerous） | `httpRequest`（按 `withCredentials` 区分）, `runJS`（按静态扫描结果区分） |
-| 重写态（dangerous） | `submitForm`, `uploadFile`, `readStorage` |
-| 跨 tab | `listTabs`, `openTab`, `attachTab`, `detachTab` |
-| 用户交互 | `askUser` — 弹模态向用户征询 select / confirm / text |
+| 重写态（dangerous） | `submitForm`, `uploadFile`, `readStorage`, `writeStorage` |
+| 导出 | `downloadImage`, `downloadSpreadsheet`（真 `.xlsx`，多 sheet） |
+| 跨 tab | `listTabs`, `openTab`, `closeTab`, `switchToTab` |
+| 浏览器数据 | `searchBookmarks`, `searchHistory` |
+
+All of these are prefixed `browser_` over MCP, e.g. `browser_takeSnapshot`.
+`askUser`, `attachTab` and `detachTab` are **not** exposed: an MCP session has
+no human at the side panel, and its tab is already bound by `open_session`.
+
+Set `ATWEBPILOT_MCP_TOOLS=parity` to trim the surface to the subset that
+covers playwright-ext one-for-one, if the full list costs too much context.
 
 ## Recommended flow
 
@@ -107,3 +118,67 @@ detachTab({ tabId })  // 完成后释放
 
 - README: https://github.com/attson/atwebpilot
 - 工具完整 schema 由 mcp-server 的 `tools/list` 暴露
+
+## Observing a page: console, network, dialogs
+
+These read from a recorder that is running on the page already, so you can ask
+about things that happened *before* you called.
+
+**Two backends, and you must check which one you got.** Every result carries
+`backend`:
+
+- `main-world` (default) — patches installed in the page's own realm. Cannot
+  see messages emitted before the patches installed, browser-level CORS/CSP
+  errors, or requests made by a service worker.
+- `cdp` — `chrome.debugger`, opt-in from the extension settings. Sees all of
+  the above plus real response bodies.
+
+If a result carries `degradedReason`, a CDP session was expected but is gone
+(DevTools opened, or another extension took the tab). Treat the data as
+incomplete rather than concluding the page did nothing. If it carries
+`disabled`, the recorder is not on that page at all.
+
+**Response bodies are off by default.** They cost memory on every page the user
+visits, so arm them first and then reproduce:
+
+```
+browser_recorderConfig({ bodies: true })   → arm
+… trigger the request …
+browser_networkRequests({ urlPattern: "/api/" })
+browser_networkRequestDetail({ id: <id from above> })
+```
+
+Calling `networkRequestDetail` without arming returns metadata plus
+`bodyUnavailable` explaining the fix. Note this tool is **dangerous**: response
+headers routinely carry `Authorization`, `Set-Cookie`, and bearer tokens.
+
+**`handleDialog` is a pre-set policy on the default backend, not a reaction.**
+`alert`, `confirm`, and `prompt` are synchronous, so a patched implementation
+cannot pause and ask you. Declare what should happen *before* triggering the
+dialog:
+
+```
+browser_handleDialog({ accept: true, promptText: "yes", scope: "all" })
+… click the thing that opens the dialog …
+browser_handleDialog({ accept: true })   → also returns the recorded dialogs
+```
+
+Under the CDP backend the dialog genuinely suspends, and a `handleDialog` call
+answers the pending one immediately.
+
+Until you arm it, dialogs behave exactly as they would without the extension —
+the recorder never silently changes page behaviour.
+
+## Debugging flow
+
+When a page misbehaves, this ordering costs the least context:
+
+1. `browser_consoleMessages({ level: "error" })` — cheap, and already buffered.
+2. `browser_networkRequests({ status: 500 })` or `{ urlPattern: "/api/" }` —
+   summaries only.
+3. `browser_recorderConfig({ bodies: true })`, reproduce, then
+   `browser_networkRequestDetail({ id })` for the one request that matters.
+
+Poll incrementally with `sinceId` rather than re-reading the whole buffer. If a
+result reports `dropped > 0`, the ring overflowed and you are seeing a window,
+not the whole history.

@@ -14,3 +14,26 @@ describe("manifest", () => {
     expect(hostPermissions).toContain("ws://localhost/*");
   });
 });
+
+type ContentScript = { js?: string[]; world?: string; run_at?: string };
+const m = manifest as {
+  permissions?: string[];
+  optional_permissions?: string[];
+  content_scripts?: ContentScript[];
+};
+
+describe("Plan 32 — recorder and CDP opt-in", () => {
+  it("does not request the debugger permission up front", () => {
+    expect(m.permissions).not.toContain("debugger");
+    expect(m.optional_permissions).toContain("debugger");
+  });
+
+  it("declares the recorder as a MAIN-world document_start script", () => {
+    const entry = (m.content_scripts ?? []).find((e) =>
+      (e.js ?? []).some((f) => f.includes("recorder/main-world"))
+    );
+    expect(entry).toBeDefined();
+    expect(entry!.world).toBe("MAIN");
+    expect(entry!.run_at).toBe("document_start");
+  });
+});

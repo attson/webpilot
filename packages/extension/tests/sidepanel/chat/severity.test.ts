@@ -123,3 +123,30 @@ describe("evaluateAutoApproval (4-mode)", () => {
     expect(evaluateAutoApproval("click", "caution", "yolo", [])).toBe(true);
   });
 });
+
+describe("classifyTool — Plan 32 tools", () => {
+  it("treats console reads and element search as safe", () => {
+    expect(classifyTool("consoleMessages", { level: "error" })).toBe("safe");
+    expect(classifyTool("findElements", { text: "x" })).toBe("safe");
+  });
+
+  it("treats network summaries and page mutations as caution", () => {
+    for (const n of [
+      "networkRequests", "recorderConfig", "handleDialog",
+      "drag", "navigateBack", "navigateForward", "resize"
+    ]) {
+      expect(classifyTool(n, {}), n).toBe("caution");
+    }
+  });
+
+  it("treats network bodies as dangerous — headers carry tokens", () => {
+    expect(classifyTool("networkRequestDetail", { id: 1 })).toBe("dangerous");
+  });
+
+  it("escalates drop only when it carries files", () => {
+    expect(classifyTool("drop", { selector: "#z" })).toBe("caution");
+    expect(classifyTool("drop", { selector: "#z", files: [{ name: "a", base64: "" }] })).toBe(
+      "dangerous"
+    );
+  });
+});

@@ -21,6 +21,13 @@ export const HelloSchema = z.object({
     chrome: z.string()
   }),
   capabilities: z.array(z.string()),
+  /**
+   * Tool names this worker can actually execute. Optional for backward
+   * compatibility: an extension predating Plan 32 does not send it, and the
+   * server then falls back to the legacy 19-tool surface rather than
+   * advertising tools that would fail at call time with "unknown tool".
+   */
+  supported_tools: z.array(z.string()).optional(),
   attended: z.boolean(),
   available_tabs: z.array(
     z.object({

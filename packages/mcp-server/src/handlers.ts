@@ -1,5 +1,9 @@
 import type { Coordinator } from "@atwebpilot/coordinator";
-import { CAPABILITIES, isCapability, type Capability } from "@atwebpilot/shared/capability";
+import {
+  CAPABILITIES,
+  isCapability,
+  type Capability
+} from "@atwebpilot/shared/capability";
 import type { BuiltinTool, Json } from "@atwebpilot/shared/types";
 import type { Result } from "@atwebpilot/shared/protocol";
 import type { GeneratedTool } from "./tool-gen";
@@ -43,6 +47,16 @@ export function handleGetQuota(deps: Deps, args: Record<string, unknown>): unkno
   return q;
 }
 
+/**
+ * `listTabs` and `openTab` are TOOL_DEFS entries without a BuiltinTool member,
+ * so `capabilityForTool`'s exhaustive switch would throw on them. They are
+ * tab-plane operations, which is exactly what `tab:open` covers.
+ */
+const NON_BUILTIN_CAPABILITY: Record<string, Capability> = {
+  listTabs: "tab:open",
+  openTab: "tab:open"
+};
+
 export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Record<string, unknown>): Promise<Json> {
   const session_id = String(args.session_id);
   const session = deps.coordinator.sessions.get(session_id);
@@ -50,11 +64,47 @@ export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Re
 
   const { session_id: _omit, ...toolArgs } = args;
   const tool = gen.builtinTool as BuiltinTool;
-  const httpCookied = tool === "httpRequest" ? Boolean((toolArgs as Record<string, unknown>).withCredentials) : undefined;
 
-  const v = deps.coordinator.validateCall({ session_id, kind: "extension_tool", tool, httpCookied });
-  if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);
-  deps.coordinator.recordCall(session_id, v.dangerous);
+  // runJS travels as a `js` step. The MCP server cannot run the static scan
+  // itself, so it declares the call unsafe and lets the extension's scanner
+  // have the final say.
+  if (gen.stepKind === "js") {
+    const source = String((toolArgs as Record<string, unknown>).source ?? "");
+    if (!source) throw new Error("browser_runJS: source required");
+    const v = deps.coordinator.validateCall({ session_id, kind: "runJS", unsafe: true });
+    if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);
+    deps.coordinator.recordCall(session_id, v.dangerous);
+    const jsResult = await deps.hub.exec(session.worker_id, {
+      session_id,
+      tab_id: session.tab_id,
+      step: { kind: "js", source } as unknown as { kind: "tool"; tool: string; args: unknown }
+    });
+    if (!jsResult.ok) {
+      throw new Error(
+        jsResult.error ? `${jsResult.error.code}: ${jsResult.error.message}` : "EXEC failed"
+      );
+    }
+    return (jsResult.return ?? null) as Json;
+  }
+
+  const override = NON_BUILTIN_CAPABILITY[gen.builtinTool];
+  if (override) {
+    const v = deps.coordinator.validateCall({ session_id, kind: "capability", capability: override });
+    if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);
+    deps.coordinator.recordCall(session_id, v.dangerous);
+  } else {
+    const raw = toolArgs as Record<string, unknown>;
+    const v = deps.coordinator.validateCall({
+      session_id,
+      kind: "extension_tool",
+      tool,
+      httpCookied: tool === "httpRequest" ? Boolean(raw.withCredentials) : undefined,
+      dropHasFiles: tool === "drop" ? Array.isArray(raw.files) && raw.files.length > 0 : undefined,
+      recorderArmsBodies: tool === "recorderConfig" ? raw.bodies === true : undefined
+    });
+    if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);
+    deps.coordinator.recordCall(session_id, v.dangerous);
+  }
 
   const result = await deps.hub.exec(session.worker_id, { session_id, tab_id: session.tab_id, step: { kind: "tool", tool, args: toolArgs as Json } });
   if (!result.ok) throw new Error(result.error ? `${result.error.code}: ${result.error.message}` : "EXEC failed");

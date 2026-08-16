@@ -3,6 +3,8 @@ import {
   type Hello
 } from "@atwebpilot/shared/protocol";
 import { CAPABILITIES } from "@atwebpilot/shared/capability";
+import { TOOLS } from "@/content/tools";
+import { META_TOOL_NAMES } from "./meta-tool-router";
 
 export interface BuildHelloInput {
   worker_id: string;
@@ -52,6 +54,11 @@ export async function buildHello(input: BuildHelloInput): Promise<Hello> {
       chrome: detectChromeVersion()
     },
     capabilities: [...CAPABILITIES],
+    // Everything this extension build can actually execute: content-script
+    // tools, background-routed meta tools, and runJS (a step kind, not a
+    // TOOLS entry). The server intersects against this so it never advertises
+    // a tool an older extension would reject.
+    supported_tools: [...new Set([...Object.keys(TOOLS), ...META_TOOL_NAMES, "runJS"])],
     attended: true,
     available_tabs,
     saved_tools: input.saved_tools,

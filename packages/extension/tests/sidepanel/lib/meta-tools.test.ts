@@ -73,11 +73,10 @@ describe("buildMetaTools", () => {
     expect(out).toEqual({ downloadId: 42, filename: "y.png" });
   });
 
-  it("downloadSpreadsheet writes xlsx through chrome.downloads and revokes object url", async () => {
+  it("downloadSpreadsheet writes xlsx through a data URL", async () => {
+    // A service worker has no URL.createObjectURL, so the shared
+    // implementation hands chrome.downloads a data: URL instead of a blob:.
     const download = vi.fn().mockResolvedValue(99);
-    const createObjectURL = vi.fn().mockReturnValue("blob:sheet");
-    const revokeObjectURL = vi.fn();
-    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
     setChrome({ downloads: { download } });
     const m = buildMetaTools({ attachedTabIds: () => [], mainTabId: 1 });
 
@@ -86,10 +85,17 @@ describe("buildMetaTools", () => {
       sheets: [{ name: "Products", rows: [["Title", "Price"], ["A", 12]] }]
     });
 
-    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
-    expect(download).toHaveBeenCalledWith({ url: "blob:sheet", filename: "reports_products.xlsx", saveAs: false });
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:sheet");
-    expect(out).toMatchObject({ downloadId: 99, filename: "reports_products.xlsx", sheets: 1, rows: 2 });
+    const call = download.mock.calls[0][0] as { url: string; filename: string; saveAs: boolean };
+    expect(call.url.startsWith("data:")).toBe(true);
+    expect(call.url).toContain("spreadsheetml");
+    expect(call.filename).toBe("reports_products.xlsx");
+    expect(call.saveAs).toBe(false);
+    expect(out).toMatchObject({
+      downloadId: 99,
+      filename: "reports_products.xlsx",
+      sheets: 1,
+      rows: 2
+    });
   });
 
   it("searchHistory passes daysBack into startTime", async () => {

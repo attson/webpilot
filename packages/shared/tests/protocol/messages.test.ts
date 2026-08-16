@@ -127,3 +127,33 @@ describe("ServerToClientSchema discriminated union", () => {
     expect(r.success).toBe(true);
   });
 });
+
+describe("HELLO.supported_tools (Plan 32)", () => {
+  const base = {
+    type: "HELLO" as const,
+    nonce: "n",
+    ts: 1,
+    protocol_version: 1,
+    worker_id: "w1",
+    fingerprint: { ext_hash: "x", os: "mac", chrome: "120" },
+    capabilities: ["read:dom"],
+    attended: true,
+    available_tabs: [],
+    saved_tools: [],
+    labels: []
+  };
+
+  it("accepts a HELLO without the field, for older extensions", () => {
+    expect(HelloSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("accepts and preserves a tool list", () => {
+    const parsed = HelloSchema.safeParse({ ...base, supported_tools: ["click", "drag"] });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.supported_tools).toEqual(["click", "drag"]);
+  });
+
+  it("rejects a non-string list", () => {
+    expect(HelloSchema.safeParse({ ...base, supported_tools: [1, 2] }).success).toBe(false);
+  });
+});

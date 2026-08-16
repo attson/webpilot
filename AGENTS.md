@@ -294,9 +294,36 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
 7. `packages/extension/tests/content/tools/<tool>.test.ts` — happy-dom unit tests
 8. `packages/extension/tests/sidepanel/chat/severity.test.ts` — add a classification case
 
-Sidepanel-only meta tools such as `downloadSpreadsheet` do not get a content
-tool implementation. Add their handler under `packages/extension/src/sidepanel/lib/meta-tools.ts`,
-exclude them from `ReplayableTool`, and test the Chrome API wrapper separately.
+Tools that need `chrome.*` rather than the DOM do not get a content tool
+implementation. Since Plan 32 they live in `packages/extension/src/background/bg-tools/`
+and are registered in `background/meta-tool-router.ts`, which `runOneStep`
+consults *before* the content-script hop — that is what makes them reachable
+from the coordinator / MCP `EXEC` path. The side panel delegates to the same
+handlers through `sidepanel/lib/meta-tools.ts`. Exclude them from
+`ReplayableTool` when their result is session-scoped, and test the Chrome API
+wrapper separately with a faked `globalThis.chrome`.
+
+Also required for every new tool: `packages/shared/src/capability/tool-mapping.ts`
+(an exhaustive switch — TypeScript will not compile until you add an arm) and
+`packages/shared/src/capability/catalog.ts` if it needs a new capability.
+
+### Page-event recorder (Plan 32)
+
+`console` / `network` / `dialog` are captured by a recorder with two backends
+behind one `PageRecorder` interface in `packages/shared/src/recorder/`:
+
+- `content/recorder/main-world.ts` — manifest-declared MAIN-world content
+  script at `document_start`. It must be MAIN world to see the page's own
+  `console` / `fetch` / `alert`. Drained through the existing one-shot
+  `injectMainWorld`, which runs in the same realm.
+- `background/recorder/cdp.ts` — opt-in `chrome.debugger`. Attach is
+  best-effort and every failure degrades to the MAIN-world backend with a
+  `degradedReason` on subsequent reads.
+
+Two invariants worth preserving: the recorder ships **inert** (bodies off,
+dialogs passthrough) because it loads on every page the user visits, and
+buffers never leave memory. Filtering lives in `shared/src/recorder/filter.ts`
+so both backends share one tested implementation.
 
 ### Add a new RPC
 
