@@ -20,11 +20,40 @@ const TOOL_MODE = readToolMode(process.env);
 const BROWSER_TOOLS: GeneratedTool[] = generateBrowserTools(TOOL_MODE);
 const BROWSER_BY_NAME = new Map(BROWSER_TOOLS.map((t) => [t.name, t]));
 
-export function buildToolList(): ToolListEntry[] {
+/**
+ * The surface an extension predating Plan 32 can execute. Used when a worker
+ * connects without `supported_tools`, so the server never advertises a tool
+ * that would fail at call time with "unknown tool".
+ */
+export const LEGACY_TOOLS: readonly string[] = [
+  "snapshotDOM", "querySelector", "querySelectorAll", "extractText", "extractImages",
+  "getValue", "extractFormState", "hover", "focus", "scroll", "waitFor",
+  "click", "fillInput", "setCheckbox", "selectOption", "httpRequest",
+  "submitForm", "uploadFile", "readStorage"
+] as const;
+
+/**
+ * Which built-ins the connected worker can run. Undefined means "no worker
+ * connected yet" — `tools/list` is often called before the browser attaches,
+ * and answering with an empty surface then would be worse than optimistic.
+ */
+function workerToolSupport(deps?: Deps): ReadonlySet<string> | undefined {
+  if (!deps) return undefined;
+  const workers = deps.coordinator.workers.list();
+  if (workers.length === 0) return undefined;
+  const supported = workers[0].supported_tools;
+  return supported ?? new Set(LEGACY_TOOLS);
+}
+
+export function buildToolList(deps?: Deps): ToolListEntry[] {
+  const supported = workerToolSupport(deps);
+  const browser = supported
+    ? BROWSER_TOOLS.filter((t) => supported.has(t.builtinTool))
+    : BROWSER_TOOLS;
   return [
     { name: SKILL_TOOL.name, description: SKILL_TOOL.description, inputSchema: SKILL_TOOL.inputSchema as JsonSchema },
     ...CONTROL_TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
-    ...BROWSER_TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema as JsonSchema }))
+    ...browser.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema as JsonSchema }))
   ];
 }
 
@@ -66,7 +95,7 @@ export async function dispatchCall(deps: Deps, name: string, args: Record<string
 
 export function createMcpServer(deps: Deps): Server {
   const server = new Server({ name: "atwebpilot-mcp", version: "0.1.0" }, { capabilities: { tools: {} } });
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: buildToolList() }));
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: buildToolList(deps) }));
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const args = (req.params.arguments ?? {}) as Record<string, unknown>;
     return dispatchCall(deps, req.params.name, args);
