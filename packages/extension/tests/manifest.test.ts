@@ -14,3 +14,19 @@ describe("manifest", () => {
     expect(hostPermissions).toContain("ws://localhost/*");
   });
 });
+
+describe("Plan 32 — recorder and CDP opt-in", () => {
+  it("does not request the debugger permission up front", () => {
+    expect(manifest.permissions).not.toContain("debugger");
+    expect(manifest.optional_permissions).toContain("debugger");
+  });
+
+  it("declares the recorder as a MAIN-world document_start script", () => {
+    const entry = (manifest.content_scripts ?? []).find((e) =>
+      (e.js ?? []).some((f) => f.includes("recorder/main-world"))
+    );
+    expect(entry).toBeDefined();
+    expect(entry!.world).toBe("MAIN");
+    expect(entry!.run_at).toBe("document_start");
+  });
+});

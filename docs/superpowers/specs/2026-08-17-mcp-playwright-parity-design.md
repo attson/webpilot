@@ -97,12 +97,24 @@ recorder could not observe requests".
 
 ### Backend 1 — `MainWorldRecorder` (default)
 
-Registered from the service worker at startup with
-`chrome.scripting.registerContentScripts({ world: "MAIN", runAt:
-"document_start", matches: ["<all_urls>"], allFrames: false })` rather than
-declared statically in the manifest. Dynamic registration lets the settings-page
-privacy toggle actually `unregisterContentScripts`, instead of merely declining
-to read the buffers.
+Declared statically in the manifest as a second `content_scripts` entry with
+`world: "MAIN"`, `run_at: "document_start"`, `matches: ["<all_urls>"]`.
+
+Dynamic registration via `chrome.scripting.registerContentScripts` was the
+original intent, because it would let the settings-page privacy toggle actually
+`unregisterContentScripts`. It does not work here: crxjs copies
+`web_accessible_resources` entries verbatim without transpiling, so a
+dynamically-registered `.ts` reaches `dist/` as raw TypeScript and never runs.
+Verified by build probe — source and emitted asset were byte-identical at
+13559 B.
+
+Consequently the master switch means "uninstall the patches and stop draining",
+not "the script never loads". The recorder exposes `uninstall()`, which restores
+every patched global and clears the buffers; the host pushes it to open tabs
+when the switch is turned off, and to each new tab on its first drain. The gap
+is a `document_start`-to-first-drain window on a fresh page load while the
+switch is off, during which the two cheap buffers fill and are then discarded.
+The settings copy states this.
 
 The recorder installs `window.__ATWEBPILOT_REC__`, holding three ring buffers.
 Reads reuse the existing one-shot `injectMainWorld`
