@@ -56,3 +56,46 @@ describe("fillInput", () => {
     expect(document.querySelector<HTMLInputElement>("#x")!.value).toBe("old+more");
   });
 });
+
+describe("fillInput — Plan 32 options", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `<input id="i" /><div id="ce" contenteditable="true"></div>`;
+  });
+
+  it("slowly emits a key sequence per character and builds the value up", async () => {
+    const el = document.querySelector<HTMLInputElement>("#i")!;
+    const keys: string[] = [];
+    const snapshots: string[] = [];
+    el.addEventListener("keydown", (e) => keys.push((e as KeyboardEvent).key));
+    el.addEventListener("input", () => snapshots.push(el.value));
+
+    await fillInput({ selector: "#i", value: "abc", slowly: true });
+
+    expect(keys).toEqual(["a", "b", "c"]);
+    expect(snapshots).toEqual(["a", "ab", "abc"]);
+    expect(el.value).toBe("abc");
+  });
+
+  it("submit presses Enter after filling", async () => {
+    const el = document.querySelector<HTMLInputElement>("#i")!;
+    const keys: string[] = [];
+    el.addEventListener("keydown", (e) => keys.push((e as KeyboardEvent).key));
+    await fillInput({ selector: "#i", value: "q", submit: true });
+    expect(keys).toEqual(["Enter"]);
+  });
+
+  it("slowly works on contenteditable too", async () => {
+    const el = document.querySelector<HTMLElement>("#ce")!;
+    await fillInput({ selector: "#ce", value: "hi", slowly: true });
+    expect(el.textContent).toBe("hi");
+  });
+
+  it("still fills in one shot by default", async () => {
+    const el = document.querySelector<HTMLInputElement>("#i")!;
+    let inputs = 0;
+    el.addEventListener("input", () => (inputs += 1));
+    await fillInput({ selector: "#i", value: "abc" });
+    expect(el.value).toBe("abc");
+    expect(inputs).toBe(1);
+  });
+});

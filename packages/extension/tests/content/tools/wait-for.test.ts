@@ -25,3 +25,45 @@ describe("waitFor", () => {
     expect(r.reason).toBe("timeout");
   });
 });
+
+describe("waitFor — Plan 32 text predicates", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `<div id="host">initial</div>`;
+  });
+
+  it("resolves immediately when the text is already present", async () => {
+    const out = await waitFor({ text: "initial" });
+    expect(out).toEqual({ reason: "text" });
+  });
+
+  it("resolves once the text appears", async () => {
+    setTimeout(() => {
+      document.querySelector("#host")!.textContent = "loaded now";
+    }, 20);
+    const out = await waitFor({ text: "loaded now", timeoutMs: 2000 });
+    expect(out).toEqual({ reason: "text" });
+  });
+
+  it("times out when the text never appears", async () => {
+    const out = await waitFor({ text: "never", timeoutMs: 60 });
+    expect(out).toEqual({ reason: "timeout" });
+  });
+
+  it("resolves immediately when textGone is already absent", async () => {
+    const out = await waitFor({ textGone: "absent" });
+    expect(out).toEqual({ reason: "textGone" });
+  });
+
+  it("resolves once the text disappears", async () => {
+    setTimeout(() => {
+      document.querySelector("#host")!.textContent = "";
+    }, 20);
+    const out = await waitFor({ textGone: "initial", timeoutMs: 2000 });
+    expect(out).toEqual({ reason: "textGone" });
+  });
+
+  it("times out when the text stays", async () => {
+    const out = await waitFor({ textGone: "initial", timeoutMs: 60 });
+    expect(out).toEqual({ reason: "timeout" });
+  });
+});
