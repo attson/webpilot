@@ -20,6 +20,11 @@ import {
   PENDING_REPLAY_KEY,
 } from "../sidepanel/lib/external-replay";
 import { installSessionBroker } from "./session-broker";
+import { installCdpListeners } from "./recorder/cdp";
+
+// Idempotent; only takes effect once the user grants the optional debugger
+// permission and enables the CDP backend in settings.
+installCdpListeners();
 
 chrome.runtime.onInstalled.addListener(() => {
   console.info("[atwebpilot] service worker installed");
