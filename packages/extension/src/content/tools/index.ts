@@ -5,6 +5,8 @@ import { extractFormState } from "./extract-form-state";
 import { extractImages } from "./extract-images";
 import { extractText } from "./extract-text";
 import { fillByUid } from "./fill-by-uid";
+import { drag } from "./drag";
+import { drop } from "./drop";
 import { findElements } from "./find-elements";
 import { fillForm } from "./fill-form";
 import { fillInput } from "./fill-input";
@@ -64,6 +66,8 @@ export const TOOLS: Partial<Record<BuiltinTool, ToolFn>> = {
   pressKey,
   writeStorage,
   // Plan 32 — playwright parity
+  drag,
+  drop,
   findElements,
   // Page Context Index
   createPageIndex,
