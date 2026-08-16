@@ -53,17 +53,36 @@ export type BuiltinTool =
   | "createPageIndex"
   | "searchPageIndex"
   | "readPageBlock"
-  | "extractPageFields";
+  | "extractPageFields"
+  // Plan 32 — playwright parity
+  | "consoleMessages"
+  | "networkRequests"
+  | "networkRequestDetail"
+  | "handleDialog"
+  | "recorderConfig"
+  | "navigateBack"
+  | "navigateForward"
+  | "resize"
+  | "drag"
+  | "drop"
+  | "findElements";
 
 /** BuiltinTool minus tools that can't be replayed offline:
  *  - askUser / screenshot — sidepanel-only
  *  - takeSnapshot / clickByUid / fillByUid — depend on live snapshot UIDs
  *  - highlightElement / highlightText — purely visual feedback
  *  - searchBookmarks / searchHistory — query-time meta lookups
- *  - downloadSpreadsheet — sidepanel-only generated download */
+ *  - downloadSpreadsheet — sidepanel-only generated download
+ *  - recorder tools — read or mutate per-session recorder state, which has no
+ *    meaning outside the live session that armed it */
 export type ReplayableTool = Exclude<
   BuiltinTool,
   | "askUser"
+  | "consoleMessages"
+  | "networkRequests"
+  | "networkRequestDetail"
+  | "handleDialog"
+  | "recorderConfig"
   | "screenshot"
   | "takeSnapshot"
   | "clickByUid"

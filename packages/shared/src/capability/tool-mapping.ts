@@ -10,7 +10,14 @@ import type { Capability } from "./catalog";
  */
 export function capabilityForTool(
   tool: BuiltinTool,
-  opts?: { httpCookied?: boolean; runJsUnsafe?: boolean }
+  opts?: {
+    httpCookied?: boolean;
+    runJsUnsafe?: boolean;
+    /** drop carrying files is an upload in disguise */
+    dropHasFiles?: boolean;
+    /** recorderConfig that turns on body capture grants body reads */
+    recorderArmsBodies?: boolean;
+  }
 ): Capability {
   switch (tool) {
     case "snapshotDOM":
@@ -83,6 +90,26 @@ export function capabilityForTool(
     // can be added later if a finer distinction is needed.
     case "writeStorage":
       return "read:storage";
+    // Plan 32 — playwright parity
+    case "consoleMessages":
+      return "read:console";
+    case "networkRequests":
+      return "read:network";
+    case "networkRequestDetail":
+      return "read:network-body";
+    case "recorderConfig":
+      return opts?.recorderArmsBodies ? "read:network-body" : "read:network";
+    case "handleDialog":
+    case "drag":
+      return "interact:form";
+    case "drop":
+      return opts?.dropHasFiles ? "upload:file" : "interact:form";
+    case "navigateBack":
+    case "navigateForward":
+    case "resize":
+      return "nav:tab";
+    case "findElements":
+      return "read:dom";
     default: {
       const _exhaustive: never = tool;
       throw new Error(`capabilityForTool: unknown tool ${_exhaustive}`);

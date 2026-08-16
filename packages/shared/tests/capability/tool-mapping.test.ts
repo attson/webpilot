@@ -3,6 +3,10 @@ import {
   capabilityForTool,
   capabilityForRunJs
 } from "../../src/capability/tool-mapping";
+import {
+  DANGEROUS_CAPABILITIES,
+  IMPLICIT_CAPABILITIES
+} from "../../src/capability/catalog";
 
 describe("capabilityForTool", () => {
   it("read:dom for safe inspectors", () => {
@@ -59,5 +63,40 @@ describe("capabilityForRunJs", () => {
   });
   it("runJS:unsafe when scan failed", () => {
     expect(capabilityForRunJs(true)).toBe("runJS:unsafe");
+  });
+});
+
+describe("Plan 32 parity tools", () => {
+  it("maps recorder reads to their tiers", () => {
+    expect(capabilityForTool("consoleMessages")).toBe("read:console");
+    expect(capabilityForTool("networkRequests")).toBe("read:network");
+    expect(capabilityForTool("networkRequestDetail")).toBe("read:network-body");
+  });
+
+  it("treats console reads as implicitly safe and bodies as dangerous", () => {
+    expect(IMPLICIT_CAPABILITIES.has("read:console")).toBe(true);
+    expect(DANGEROUS_CAPABILITIES.has("read:network-body")).toBe(true);
+    expect(DANGEROUS_CAPABILITIES.has("read:network")).toBe(false);
+  });
+
+  it("escalates drop when it carries files", () => {
+    expect(capabilityForTool("drop")).toBe("interact:form");
+    expect(capabilityForTool("drop", { dropHasFiles: true })).toBe("upload:file");
+  });
+
+  it("escalates recorderConfig when it arms body capture", () => {
+    expect(capabilityForTool("recorderConfig")).toBe("read:network");
+    expect(capabilityForTool("recorderConfig", { recorderArmsBodies: true })).toBe(
+      "read:network-body"
+    );
+  });
+
+  it("maps navigation and interaction helpers", () => {
+    expect(capabilityForTool("navigateBack")).toBe("nav:tab");
+    expect(capabilityForTool("navigateForward")).toBe("nav:tab");
+    expect(capabilityForTool("resize")).toBe("nav:tab");
+    expect(capabilityForTool("drag")).toBe("interact:form");
+    expect(capabilityForTool("handleDialog")).toBe("interact:form");
+    expect(capabilityForTool("findElements")).toBe("read:dom");
   });
 });
