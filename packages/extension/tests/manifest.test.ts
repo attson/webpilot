@@ -15,14 +15,21 @@ describe("manifest", () => {
   });
 });
 
+type ContentScript = { js?: string[]; world?: string; run_at?: string };
+const m = manifest as {
+  permissions?: string[];
+  optional_permissions?: string[];
+  content_scripts?: ContentScript[];
+};
+
 describe("Plan 32 — recorder and CDP opt-in", () => {
   it("does not request the debugger permission up front", () => {
-    expect(manifest.permissions).not.toContain("debugger");
-    expect(manifest.optional_permissions).toContain("debugger");
+    expect(m.permissions).not.toContain("debugger");
+    expect(m.optional_permissions).toContain("debugger");
   });
 
   it("declares the recorder as a MAIN-world document_start script", () => {
-    const entry = (manifest.content_scripts ?? []).find((e) =>
+    const entry = (m.content_scripts ?? []).find((e) =>
       (e.js ?? []).some((f) => f.includes("recorder/main-world"))
     );
     expect(entry).toBeDefined();
