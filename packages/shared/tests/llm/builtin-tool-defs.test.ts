@@ -22,3 +22,40 @@ describe("TOOL_DEFS (hoisted to shared)", () => {
     }
   });
 });
+
+describe("Plan 32 parity tool defs", () => {
+  const byName = new Map(TOOL_DEFS.map((t) => [t.name, t]));
+  const props = (n: string) =>
+    (byName.get(n)!.input_schema as { properties: Record<string, unknown> }).properties;
+
+  it("defines every new tool exactly once", () => {
+    for (const name of [
+      "consoleMessages", "networkRequests", "networkRequestDetail", "handleDialog",
+      "recorderConfig", "navigateBack", "navigateForward", "resize", "drag", "drop",
+      "findElements"
+    ]) {
+      expect(byName.has(name), name).toBe(true);
+    }
+    expect(TOOL_DEFS.length).toBe(new Set(TOOL_DEFS.map((t) => t.name)).size);
+    expect(TOOL_DEFS.length).toBe(57);
+  });
+
+  it("documents the dialog policy caveat", () => {
+    expect(byName.get("handleDialog")!.description).toContain("main-world");
+  });
+
+  it("extends click, fillInput, screenshot and waitFor", () => {
+    expect(Object.keys(props("click"))).toEqual(
+      expect.arrayContaining(["doubleClick", "button", "modifiers"])
+    );
+    expect(Object.keys(props("fillInput"))).toEqual(
+      expect.arrayContaining(["slowly", "submit"])
+    );
+    expect(Object.keys(props("screenshot"))).toEqual(
+      expect.arrayContaining(["fullPage", "format", "scale"])
+    );
+    expect(Object.keys(props("waitFor"))).toEqual(
+      expect.arrayContaining(["text", "textGone"])
+    );
+  });
+});

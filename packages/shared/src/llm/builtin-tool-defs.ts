@@ -202,6 +202,8 @@ export const TOOL_DEFS: LlmTool[] = [
         ms: { type: "integer" },
         selector: { type: "string" },
         timeoutMs: { type: "integer", default: 5000 },
+        text: { type: "string", description: "等待页面出现该文本" },
+        textGone: { type: "string", description: "等待该文本消失" },
         tabId: TAB_ID_FIELD,
       },
     },
@@ -216,6 +218,12 @@ export const TOOL_DEFS: LlmTool[] = [
       properties: {
         selector: { type: "string" },
         required: { type: "boolean", default: true },
+        doubleClick: { type: "boolean", default: false },
+        button: { type: "string", enum: ["left", "right", "middle"], default: "left" },
+        modifiers: {
+          type: "array",
+          items: { type: "string", enum: ["Alt", "Control", "Meta", "Shift"] },
+        },
         tabId: TAB_ID_FIELD,
       },
       required: ["selector"],
@@ -268,6 +276,12 @@ export const TOOL_DEFS: LlmTool[] = [
         selector: { type: "string" },
         value: { type: "string" },
         clear: { type: "boolean", default: true },
+        slowly: {
+          type: "boolean",
+          default: false,
+          description: "逐字符触发 keydown/keypress/input/keyup，对付受控组件",
+        },
+        submit: { type: "boolean", default: false, description: "填完按一次 Enter" },
         tabId: TAB_ID_FIELD,
       },
       required: ["selector", "value"],
@@ -471,6 +485,9 @@ export const TOOL_DEFS: LlmTool[] = [
         blockId: { type: "string", description: "可选：page-index 返回的 blockId，用于局部视觉证据" },
         indexId: { type: "string", description: "可选：产生 blockId 的 indexId，避免 refresh 后误读" },
         highlightMs: { type: "integer", default: 1500, description: "截图前目标高亮持续时间，250-5000ms" },
+        fullPage: { type: "boolean", default: false, description: "滚动分段截图后拼接整页" },
+        format: { type: "string", enum: ["png", "jpeg"], default: "png" },
+        scale: { type: "number", default: 1, description: "0.1–1，缩小可省 token" },
         tabId: TAB_ID_FIELD,
       },
     },
@@ -759,6 +776,177 @@ export const TOOL_DEFS: LlmTool[] = [
         tabId: TAB_ID_FIELD,
       },
       required: ["store", "key", "value"],
+    },
+  },
+  // ── Plan 32 — playwright parity ──────────────────────────────────────────
+  {
+    name: "consoleMessages",
+    description:
+      "[OBSERVE] 读取本页 console 日志与未捕获错误。返回里带 backend 字段：main-world 档看不到脚本注入之前的消息和浏览器级 CORS/CSP 报错，cdp 档能看到。\n" +
+      "示例：只看报错 { level: 'error', limit: 50 }；增量轮询 { sinceId: 上次返回的最大 id }",
+    input_schema: {
+      type: "object",
+      properties: {
+        level: { type: "string", enum: ["log", "info", "warn", "error", "debug", "trace"] },
+        limit: { type: "integer", default: 100 },
+        sinceId: { type: "integer", description: "只返回 id 大于此值的消息，用于增量读取" },
+        tabId: TAB_ID_FIELD,
+      },
+    },
+  },
+  {
+    name: "networkRequests",
+    description:
+      "[OBSERVE] 列出本页发出的网络请求摘要（method / url / status / 耗时）。默认隐藏 PerformanceObserver 观测到的静态资源，includeStatic:true 才带上。\n" +
+      "要看 headers 或 body 用 networkRequestDetail。",
+    input_schema: {
+      type: "object",
+      properties: {
+        urlPattern: { type: "string", description: "子串匹配；用 /re/ 或 /re/i 包起来则按正则" },
+        method: { type: "string" },
+        status: { type: "integer" },
+        includeStatic: { type: "boolean", default: false },
+        limit: { type: "integer", default: 50 },
+        sinceId: { type: "integer" },
+        tabId: TAB_ID_FIELD,
+      },
+    },
+  },
+  {
+    name: "networkRequestDetail",
+    description:
+      "[OBSERVE] 读取单条请求的 headers 与 body。**dangerous**：响应头里可能有 Authorization / Set-Cookie / token。\n" +
+      "main-world 档需先 recorderConfig({bodies:true}) 才会记录 body，且只记 256KB 以内的文本类响应；cdp 档直接可取。",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "integer", description: "networkRequests 返回的条目 id" },
+        part: {
+          type: "string",
+          enum: ["request-headers", "request-body", "response-headers", "response-body"],
+          description: "只取其中一部分；省略则全给",
+        },
+        tabId: TAB_ID_FIELD,
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "handleDialog",
+    description:
+      "[OBSERVE] 设定 alert / confirm / prompt 的应答策略，并返回已记录的弹窗。\n" +
+      "main-world 档下弹窗是同步的，无法挂起等你决定，所以这里设的是**预先策略**：调用之后发生的弹窗按此处理。cdp 档下弹窗真挂起，本调用会立即应答当前挂起的弹窗。\n" +
+      "未调用过本工具时弹窗保持原生行为（passthrough），页面表现与没装扩展一致。",
+    input_schema: {
+      type: "object",
+      properties: {
+        accept: { type: "boolean", description: "true=确定，false=取消" },
+        promptText: { type: "string", description: "prompt 弹窗填入的文本" },
+        scope: { type: "string", enum: ["next", "all"], default: "next" },
+        tabId: TAB_ID_FIELD,
+      },
+      required: ["accept"],
+    },
+  },
+  {
+    name: "recorderConfig",
+    description:
+      "[OBSERVE] 开关页面事件录制。bodies:true 打开请求/响应 body 捕获（默认关，有内存代价）；dialog:true 让弹窗走策略而不是原生行为；clear 清空缓冲。省略的字段保持原样。",
+    input_schema: {
+      type: "object",
+      properties: {
+        console: { type: "boolean" },
+        network: { type: "boolean" },
+        bodies: { type: "boolean" },
+        dialog: { type: "boolean" },
+        clear: {
+          type: "array",
+          items: { type: "string", enum: ["console", "network", "dialog"] },
+        },
+        tabId: TAB_ID_FIELD,
+      },
+    },
+  },
+  {
+    name: "navigateBack",
+    description: "[FLOW] 后退一页。已在历史起点时返回 { ok:false, reason }，不抛错。",
+    input_schema: { type: "object", properties: { tabId: TAB_ID_FIELD } },
+  },
+  {
+    name: "navigateForward",
+    description: "[FLOW] 前进一页。已在历史末尾时返回 { ok:false, reason }，不抛错。",
+    input_schema: { type: "object", properties: { tabId: TAB_ID_FIELD } },
+  },
+  {
+    name: "resize",
+    description:
+      "[FLOW] 把视口调整到指定尺寸。main-world 档量取 outerWidth-innerWidth 反推浏览器边框后改窗口外框，视口精确但**用户的窗口会真的变大小**；cdp 档用 Emulation 覆盖设备尺寸，不动真实窗口。",
+    input_schema: {
+      type: "object",
+      properties: {
+        width: { type: "integer" },
+        height: { type: "integer" },
+        tabId: TAB_ID_FIELD,
+      },
+      required: ["width", "height"],
+    },
+  },
+  {
+    name: "drag",
+    description:
+      "[ACT] 把一个元素拖到另一个元素上。同时发 pointer 序列和 HTML5 DragEvent（共用一个 DataTransfer），兼容原生拖放和自定义 pointer 拖放。\n" +
+      "返回 { consumed: { pointer, html5 } } 说明目标实际消费了哪一类事件——都为 false 说明这个拖放实现两条路都不吃。",
+    input_schema: {
+      type: "object",
+      properties: {
+        fromSelector: { type: "string" },
+        fromUid: { type: "string", description: "takeSnapshot / findElements 返回的 uid" },
+        toSelector: { type: "string" },
+        toUid: { type: "string" },
+        tabId: TAB_ID_FIELD,
+      },
+    },
+  },
+  {
+    name: "drop",
+    description:
+      "[ACT] 模拟从浏览器外部把文件或数据拖放到页面元素上。带 files 时等同上传（dangerous）。\n" +
+      "示例：{ selector:'#dropzone', files:[{ name:'a.csv', mimeType:'text/csv', base64:'...' }] }",
+    input_schema: {
+      type: "object",
+      properties: {
+        selector: { type: "string" },
+        uid: { type: "string" },
+        files: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              mimeType: { type: "string" },
+              base64: { type: "string" },
+            },
+            required: ["name", "base64"],
+          },
+        },
+        data: { type: "object", description: "MIME → 字符串，例如 { 'text/plain':'hi' }" },
+        tabId: TAB_ID_FIELD,
+      },
+    },
+  },
+  {
+    name: "findElements",
+    description:
+      "[READ] 按文本或正则在可交互元素里找目标，返回 uid / role / name / bounds。不需要先 createPageIndex。\n" +
+      "拿到 uid 后用 clickByUid / fillByUid 操作最稳。",
+    input_schema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "大小写不敏感子串" },
+        regex: { type: "string", description: "与 text 二选一" },
+        limit: { type: "integer", default: 20 },
+        tabId: TAB_ID_FIELD,
+      },
     },
   },
 ];

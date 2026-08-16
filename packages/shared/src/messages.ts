@@ -43,7 +43,21 @@ export const StepSchema = z.discriminatedUnion("kind", [
       "createPageIndex",
       "searchPageIndex",
       "readPageBlock",
-      "extractPageFields"
+      "extractPageFields",
+      // Plan 32 — playwright parity. The recorder tools are not kept by
+      // save-as-tool (they're excluded from ReplayableTool), but the runtime
+      // still transports them as Steps to reach the background router.
+      "consoleMessages",
+      "networkRequests",
+      "networkRequestDetail",
+      "handleDialog",
+      "recorderConfig",
+      "navigateBack",
+      "navigateForward",
+      "resize",
+      "drag",
+      "drop",
+      "findElements"
     ]),
     args: z.unknown(),
     bindResultTo: z.string().optional(),
