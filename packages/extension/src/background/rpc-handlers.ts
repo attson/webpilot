@@ -23,6 +23,10 @@ import {
   saveDraft
 } from "./storage/tools";
 import { classifyTool } from "@/sidepanel/chat/severity";
+import { registerInjectMain } from "./recorder/host";
+
+// Wired here rather than imported by the host to avoid a circular import.
+registerInjectMain((tabId, source, args) => injectMainWorld(tabId, source, args));
 
 async function readLlmSettings(): Promise<{
   selfHealEnabled: boolean;
