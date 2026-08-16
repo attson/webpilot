@@ -1,6 +1,9 @@
 # MCP Playwright Parity Design
 
-**Status:** proposed.
+**Status:** implemented. Deviations found during execution are folded into the
+text below rather than left as aspirations — see Backend 1 on why the MAIN-world
+script is manifest-declared, and the tool-count note under "Allow-list becomes a
+block-list".
 
 ## Problem
 
@@ -84,8 +87,8 @@ interface PageRecorder {
   readConsole(o: {level?: ConsoleLevel; limit?: number; sinceId?: number}): ConsoleReadResult;
   readNetwork(o: {urlPattern?: string; method?: string; status?: number;
                   includeStatic?: boolean; limit?: number; sinceId?: number}): NetworkReadResult;
-  readNetworkDetail(o: {id: number; part?: NetworkPart}): NetworkDetail;
-  setDialogPolicy(o: {accept: boolean; promptText?: string; scope: "next" | "all"}): DialogPolicyResult;
+  readNetworkDetail(o: {id: number; part?: NetworkPart}): NetworkDetailResult;
+  setDialogPolicy(o: {accept: boolean; promptText?: string; scope: "next" | "all"}): DialogReadResult;
   readDialogs(o: {limit?: number}): DialogReadResult;
   configure(o: RecorderConfig): RecorderConfig;
 }
@@ -151,8 +154,7 @@ decision, not just a performance one.
 
 Buffers are in-memory only. They are never written to IndexedDB, never included
 in "export tool library", and never leave the page unless a tool call drains
-them. The settings page gets a master switch that unregisters the content
-script entirely.
+them.
 
 Overflow drops oldest and increments a `dropped` counter returned on every
 read, so the agent can tell truncation from absence.
@@ -267,9 +269,12 @@ block-list over the full `TOOL_DEFS`. Three tools stay out:
 - `attachTab`, `detachTab` — side-panel multi-tab bookkeeping; an MCP session
   already has its tab bound by `open_session`.
 
-The resulting surface is 45 + 11 − 3 = **53** `browser_*` tools, plus four
-control-plane tools and the skill tool, for 58 total. playwright-ext exposes
-24. The schemas cost roughly 20 KB of context on every request.
+The resulting surface is 46 + 11 − 3 = **54** `browser_*` tools, plus four
+control-plane tools and the skill tool, for 59 total. (The count is over
+`TOOL_DEFS`, which has 46 entries, not the `BuiltinTool` union's 45 — `runJS`
+is a `TOOL_DEFS` entry without a union member because it is a distinct step
+kind.) playwright-ext exposes 24. The schemas cost roughly 20 KB of context on
+every request.
 
 ### The `ATWEBPILOT_MCP_TOOLS` knob
 

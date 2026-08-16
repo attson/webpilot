@@ -34,7 +34,10 @@ const SAFE = new Set([
   "createPageIndex",
   "searchPageIndex",
   "readPageBlock",
-  "extractPageFields"
+  "extractPageFields",
+  // Plan 32 — read-only observation
+  "consoleMessages",
+  "findElements"
 ]);
 
 const CAUTION = new Set([
@@ -52,7 +55,15 @@ const CAUTION = new Set([
   "downloadImage",
   "downloadSpreadsheet",
   // Round 6
-  "pressKey"
+  "pressKey",
+  // Plan 32
+  "networkRequests",
+  "recorderConfig",
+  "handleDialog",
+  "drag",
+  "navigateBack",
+  "navigateForward",
+  "resize"
 ]);
 
 const DANGEROUS_FIXED = new Set([
@@ -60,7 +71,9 @@ const DANGEROUS_FIXED = new Set([
   "submitForm",
   "uploadFile",
   // Round 6
-  "writeStorage"
+  "writeStorage",
+  // Plan 32 — response headers routinely carry Authorization / Set-Cookie
+  "networkRequestDetail"
 ]);
 
 export function classifyTool(name: string, input: Json): ToolSeverity {
@@ -77,6 +90,11 @@ export function classifyTool(name: string, input: Json): ToolSeverity {
     const sev = highestSeverity(runStaticScan(source));
     if (sev === "dangerous") return "dangerous";
     return "caution";
+  }
+  // drop carrying files is an upload in disguise
+  if (name === "drop") {
+    const files = isObject(input) ? (input as Record<string, Json>).files : undefined;
+    return Array.isArray(files) && files.length > 0 ? "dangerous" : "caution";
   }
   if (name === "navigate") {
     const action = isObject(input) ? (input as Record<string, Json>).action : undefined;

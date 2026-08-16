@@ -103,9 +103,11 @@ API Key 不会进 IndexedDB，也不会被「导出工具库」带走。
 
 输入指令 → AI 流式回应 + 调用工具：
 
-- **safe**（createPageIndex / searchPageIndex / readPageBlock / extractPageFields / snapshotDOM / extractText / hover / getValue / scroll / waitFor / extractImages / querySelector* / extractFormState）：自动跑
-- **caution**（fillInput / click / setCheckbox / selectOption / pressKey / navigate / downloadSpreadsheet / 不带 cookie 的 httpRequest）：默认跟随顶部 toggle
-- **dangerous**（submitForm / uploadFile / readStorage / 带 cookie 的 httpRequest / 命中静态扫描的 runJS）：每次必须人工确认；可在白名单里逐项放行
+- **safe**（createPageIndex / searchPageIndex / readPageBlock / extractPageFields / snapshotDOM / takeSnapshot / findElements / extractText / hover / getValue / scroll / waitFor / extractImages / querySelector* / extractFormState / consoleMessages）：自动跑
+- **caution**（fillInput / click / setCheckbox / selectOption / pressKey / navigate / navigateBack / resize / drag / drop / handleDialog / downloadSpreadsheet / networkRequests / recorderConfig / 不带 cookie 的 httpRequest）：默认跟随顶部 toggle
+- **dangerous**（submitForm / uploadFile / readStorage / networkRequestDetail / 带文件的 drop / 带 cookie 的 httpRequest / 命中静态扫描的 runJS）：每次必须人工确认；可在白名单里逐项放行
+
+  `networkRequestDetail` 归 dangerous 是因为响应头里常有 `Authorization`、`Set-Cookie`、各种 token。
 
 完成后顶部小条 `已执行 N 步 [保存为工具]`——点击后弹保存对话框。
 
@@ -230,7 +232,7 @@ URL 模式   [https://*.pinduoduo.com/**]
 
 ```bash
 pnpm typecheck      # pnpm -r typecheck across shared / coordinator / extension / mcp-server
-pnpm test           # 全量测试 ~853（656 extension + 124 shared + 45 coordinator + 28 mcp-server）
+pnpm test           # 全量测试 ~1023（774 extension + 155 shared + 45 coordinator + 49 mcp-server）
 pnpm test:watch
 pnpm build          # 产出 packages/extension/dist/
 ```
@@ -252,7 +254,7 @@ node docs/superpowers/scripts/mini-coordinator.mjs
 # 在设置里填 ws://127.0.0.1:8787/worker + 任意 token → 连接
 ```
 
-### 用 Claude Code 驱动浏览器（MCP Bridge，Plan 13）
+### 用 Claude Code 驱动浏览器（MCP Bridge，Plan 13 / 32）
 
 `packages/mcp-server` 是一个 stdio MCP server，同时起本地 ws 服务器。Claude Code 连它后可调
 `list_tabs / open_session / browser_* / get_quota / close_session` 在网页上读写采。
@@ -260,7 +262,33 @@ node docs/superpowers/scripts/mini-coordinator.mjs
     pnpm -F @atwebpilot/mcp-server start   # 监听 ws://127.0.0.1:8787/worker（tsx 直跑）
     # 扩展设置页填该 URL + token → 连接；Claude Code 侧把它配成 MCP server
 
-详见 `packages/mcp-server/README.md`。
+Plan 32 之后 MCP 面从 19 个扩到 **54 个** `browser_*`——扩展的全部内置工具，只挡掉 `askUser` /
+`attachTab` / `detachTab`。嫌工具列表吃上下文可以设 `ATWEBPILOT_MCP_TOOLS=parity` 只留对标
+playwright-ext 的子集。工具列表与扩展上报的 `supported_tools` 求交集，旧版扩展不会拿到调不动的工具。
+
+这一版的目标是**能替代 `@playwright/mcp --extension`**：补齐了 console / network / dialog 捕获、
+drag / drop / resize / navigateBack / findElements、整页截图，以及 click 的
+`doubleClick`/`button`/`modifiers`、fillInput 的 `slowly`/`submit`、waitFor 的 `text`/`textGone`。
+对照表见 `packages/mcp-server/README.md`。
+
+### 页面事件录制（Plan 32）
+
+`consoleMessages` / `networkRequests` / `networkRequestDetail` / `handleDialog` 读的是一个常驻录制器。
+默认姿态是**惰性的**，因为它装在你访问的每一个页面上：
+
+| 通道 | 默认 | 说明 |
+|---|---|---|
+| console 缓冲 | 开 | 便宜；不开就拿不到「提问之前」发生的报错 |
+| network 元数据 | 开 | 只记 url / method / status / 耗时 |
+| 请求响应 body | **关** | 要 `recorderConfig({bodies:true})` 显式打开，上限 256KB 且只记文本类 |
+| 弹窗拦截 | **passthrough** | 不 arm 时 `alert`/`confirm`/`prompt` 原样调用原生实现，页面行为与没装扩展一致 |
+
+缓冲只在内存，不进 IndexedDB，不随「导出工具库」走，没有工具来读就不出页面。
+
+两种后端：默认在 MAIN world 打补丁；设置页 → Coordinator 里可以 opt-in `chrome.debugger`（CDP）档，
+拿到响应 body、注入前日志、CORS/CSP 报错和真正挂起的弹窗，代价是浏览器顶部常驻调试提示条、且与
+DevTools 互斥。被抢占时自动退回默认档，并在返回值里带 `backend` 和 `degradedReason`。
+`debugger` 是 optional permission，不启用就不会向用户索取。
 
 ---
 
@@ -304,7 +332,11 @@ packages/
 └─ extension/
    └─ src/
       ├─ background/       Service Worker（IDB / RPC / tab-watcher / coordinator-client）
+      │  ├─ bg-tools/      SW 侧工具（tabs / capture / downloads / search / nav / recorder-tools）
+      │  ├─ recorder/      页面事件录制 host（MAIN-world + CDP 双后端与降级）
+      │  └─ meta-tool-router.ts  非 content-script 工具的分发（EXEC 路径可达）
       ├─ content/          Content tools + page-index + 页内 widget + 元素圈选
+      │  └─ recorder/      MAIN world 常驻录制器（console / network / dialog）
       └─ sidepanel/        React UI + zustand session store + LLM 客户端 + coordinator 设置页 + xlsx/meta tools
 docs/superpowers/
 ├─ specs/                  设计文档（Plan 1-30；见 specs/README.md）
