@@ -16,11 +16,21 @@ export type DispatchInput =
       kind: "extension_tool";
       tool: BuiltinTool;
       httpCookied?: boolean;
+      /** drop carrying files is an upload in disguise */
+      dropHasFiles?: boolean;
+      /** recorderConfig that turns on body capture grants body reads */
+      recorderArmsBodies?: boolean;
     }
   | {
       session_id: string;
       kind: "runJS";
       unsafe: boolean;
+    }
+  | {
+      session_id: string;
+      /** Tools without a BuiltinTool member, whose capability the caller knows. */
+      kind: "capability";
+      capability: Capability;
     };
 
 export type DispatchValidation =
@@ -40,8 +50,14 @@ export class Dispatcher {
 
     const required =
       input.kind === "extension_tool"
-        ? capabilityForTool(input.tool, { httpCookied: input.httpCookied })
-        : capabilityForRunJs(input.unsafe);
+        ? capabilityForTool(input.tool, {
+            httpCookied: input.httpCookied,
+            dropHasFiles: input.dropHasFiles,
+            recorderArmsBodies: input.recorderArmsBodies
+          })
+        : input.kind === "capability"
+          ? input.capability
+          : capabilityForRunJs(input.unsafe);
 
     if (!scopeCovers(session.scope, required)) {
       return fail("PermissionDenied", `Capability ${required} not in session scope`, {

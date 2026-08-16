@@ -70,7 +70,7 @@ describe("handleBrowserTool", () => {
   it("validates, records quota, sends EXEC, returns RESULT.return", async () => {
     const { deps, calls } = makeDeps(okResult);
     const { session_id } = handleOpenSession(deps, { tab_id: "42" });
-    const gen = { name: "browser_click", builtinTool: "click", description: "", inputSchema: {} as any };
+    const gen = { name: "browser_click", builtinTool: "click", description: "", resultKind: "json" as const, stepKind: "tool" as const, inputSchema: {} as any };
     const out = await handleBrowserTool(deps, gen, { session_id, selector: ".b" });
     expect(out).toEqual({ clicked: true });
     expect(calls[0].params.step).toEqual({ kind: "tool", tool: "click", args: { selector: ".b" } });
@@ -81,14 +81,14 @@ describe("handleBrowserTool", () => {
   it("maps httpRequest withCredentials → dangerous (httpCookied)", async () => {
     const { deps } = makeDeps(okResult);
     const { session_id } = handleOpenSession(deps, { tab_id: "42" });
-    const gen = { name: "browser_httpRequest", builtinTool: "httpRequest", description: "", inputSchema: {} as any };
+    const gen = { name: "browser_httpRequest", builtinTool: "httpRequest", description: "", resultKind: "json" as const, stepKind: "tool" as const, inputSchema: {} as any };
     await handleBrowserTool(deps, gen, { session_id, url: "https://x", withCredentials: true });
     expect(deps.coordinator.quotaFor(session_id)!.dangerous_used).toBe(1);
   });
 
   it("throws on unknown session", async () => {
     const { deps } = makeDeps(okResult);
-    const gen = { name: "browser_click", builtinTool: "click", description: "", inputSchema: {} as any };
+    const gen = { name: "browser_click", builtinTool: "click", description: "", resultKind: "json" as const, stepKind: "tool" as const, inputSchema: {} as any };
     await expect(handleBrowserTool(deps, gen, { session_id: "nope", selector: ".b" })).rejects.toThrow(/not found|SessionNotFound/);
   });
 
@@ -96,7 +96,7 @@ describe("handleBrowserTool", () => {
     const bad: Result = { type: "RESULT", nonce: "n", ts: 1, protocol_version: 1, req_id: "req_1", ok: false, error: { code: "PageScriptError", message: "boom", retryable: false } };
     const { deps } = makeDeps(bad);
     const { session_id } = handleOpenSession(deps, { tab_id: "42" });
-    const gen = { name: "browser_click", builtinTool: "click", description: "", inputSchema: {} as any };
+    const gen = { name: "browser_click", builtinTool: "click", description: "", resultKind: "json" as const, stepKind: "tool" as const, inputSchema: {} as any };
     await expect(handleBrowserTool(deps, gen, { session_id, selector: ".b" })).rejects.toThrow(/boom/);
   });
 });
