@@ -12,6 +12,8 @@ export interface Hub {
   exec(worker_id: string, params: { session_id: string; tab_id: string; step: { kind: "tool"; tool: string; args: unknown } }): Promise<Result>;
   /** Closes connected workers with the graceful code. Absent in test doubles. */
   shutdown?(): Promise<void>;
+  /** Releases the port without the graceful close frame. Absent in test doubles. */
+  close?(): Promise<void>;
 }
 
 export interface HubBundle {

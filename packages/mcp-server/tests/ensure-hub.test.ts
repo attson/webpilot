@@ -7,7 +7,7 @@ import { createHubEnsurer } from "../src/ensure-hub";
 import { loadLastPort, saveLastPort } from "../src/identity";
 
 const dirs: string[] = [];
-const made: Array<{ peek(): { hub: { close(): Promise<void> } } | null }> = [];
+const made: Array<ReturnType<typeof createHubEnsurer>> = [];
 
 const tmp = () => {
   const d = mkdtempSync(join(tmpdir(), "atwebpilot-hub-"));
@@ -29,7 +29,7 @@ function makeEnsurer(opts: { openUrl?: (u: string) => void; dir?: string; explic
 }
 
 afterEach(async () => {
-  for (const e of made.splice(0)) await e.peek()?.hub.close();
+  for (const e of made.splice(0)) await e.peek()?.hub.close?.();
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
@@ -80,7 +80,7 @@ describe("createHubEnsurer", () => {
     // Learn a free port, release it, then check the next ensurer reuses it.
     const probe = makeEnsurer({ dir });
     const { port } = await probe.ensure();
-    await probe.peek()!.hub.close();
+    await probe.peek()!.hub.close?.();
 
     saveLastPort(port, dir);
     const again = createHubEnsurer({
