@@ -12,10 +12,15 @@ import {
   type StartChatSession
 } from "@atwebpilot/shared/protocol";
 import { buildHello } from "./coordinator-hello";
+import {
+  GRACEFUL_CLOSE_CODE,
+  INITIAL_RECONNECT_STATE,
+  nextReconnect,
+  wake,
+  type ReconnectState
+} from "@atwebpilot/shared/pairing";
 
 const HEARTBEAT_ALARM = "atwebpilot-coordinator-heartbeat";
-const RECONNECT_BASE_MS = 1_000;
-const RECONNECT_MAX_MS = 30_000;
 
 export type ClientStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -35,6 +40,10 @@ export interface CoordinatorClientOptions {
     send: (m: ClientToServer) => void
   ) => Promise<void>;
   onStatusChange?: (s: ClientStatus) => void;
+  /** Fired once when this client stops retrying — the pool surfaces it as dormant. */
+  onDormant?: () => void;
+  /** Fired when the server reports a session bound a tab (Plan 33). */
+  onSessionOpened?: (msg: { session_id: string; tab_id: string }) => void;
 }
 
 function randomNonce(): string {
@@ -46,7 +55,9 @@ function randomNonce(): string {
 export class CoordinatorClient {
   private ws: WebSocket | null = null;
   private _status: ClientStatus = "disconnected";
-  private reconnectAttempts = 0;
+  private reconnect: ReconnectState = INITIAL_RECONNECT_STATE;
+  /** When the next attempt is due; the alarm must not jump the queue. */
+  private nextAttemptAt = 0;
   private alarmListener: ((alarm: { name: string }) => void) | null = null;
   private intentionallyClosed = false;
 
@@ -54,6 +65,18 @@ export class CoordinatorClient {
 
   get status(): ClientStatus {
     return this._status;
+  }
+
+  get reconnectState(): ReconnectState {
+    return this.reconnect;
+  }
+
+  /** Re-arms a dormant client: manual reconnect, re-pairing, browser restart. */
+  wakeUp(): void {
+    if (this.reconnect.status !== "dormant") return;
+    this.reconnect = wake(this.reconnect);
+    this.nextAttemptAt = 0;
+    if (!this.intentionallyClosed) void this.connect();
   }
 
   private setStatus(s: ClientStatus): void {
@@ -69,7 +92,7 @@ export class CoordinatorClient {
       : [`proto.${PROTOCOL_VERSION}`];
     this.ws = new WebSocket(this.opts.ws_url, protocols);
     this.ws.onopen = () => this.handleOpen();
-    this.ws.onclose = () => this.handleClose();
+    this.ws.onclose = (ev) => this.handleClose(ev as CloseEvent | undefined);
     this.ws.onerror = () => this.setStatus("error");
     this.ws.onmessage = (ev) => this.handleMessage(ev.data);
     this.installAlarm();
@@ -124,7 +147,8 @@ export class CoordinatorClient {
           this.ws?.close();
           return;
         }
-        this.reconnectAttempts = 0;
+        this.reconnect = nextReconnect(this.reconnect, "success");
+        this.nextAttemptAt = 0;
         this.setStatus("connected");
         return;
       case "PONG":
@@ -181,12 +205,24 @@ export class CoordinatorClient {
     this.ws.send(JSON.stringify(msg));
   }
 
-  private handleClose(): void {
+  private handleClose(ev?: { code?: number }): void {
     if (this.intentionallyClosed) {
       this.uninstallAlarm();
       this.setStatus("disconnected");
       return;
     }
+
+    // A deliberate server shutdown is not something to retry through. Without
+    // this the endpoint would be knocked on for the rest of the browser
+    // session, once per session that ever paired.
+    if (ev?.code === GRACEFUL_CLOSE_CODE) {
+      this.reconnect = nextReconnect(this.reconnect, "graceful-close");
+      this.setStatus("disconnected");
+      this.opts.onDormant?.();
+      this.uninstallAlarm();
+      return;
+    }
+
     // Don't overwrite an already-set error status (e.g. protocol version mismatch
     // sets "error" then immediately closes the socket, which would fire handleClose).
     if (this._status !== "error") {
@@ -200,15 +236,20 @@ export class CoordinatorClient {
   }
 
   private scheduleReconnect(): void {
-    this.reconnectAttempts += 1;
-    const backoff = Math.min(
-      RECONNECT_BASE_MS * 2 ** (this.reconnectAttempts - 1),
-      RECONNECT_MAX_MS
-    );
+    this.reconnect = nextReconnect(this.reconnect, "failure");
+    if (this.reconnect.status === "dormant") {
+      // Stop knocking. The trust record survives; a manual reconnect, a fresh
+      // pairing, or a browser restart re-arms it through wakeUp().
+      this.nextAttemptAt = Number.POSITIVE_INFINITY;
+      this.opts.onDormant?.();
+      this.uninstallAlarm();
+      return;
+    }
+    this.nextAttemptAt = Date.now() + this.reconnect.delayMs;
     setTimeout(() => {
       if (this.intentionallyClosed) return;
       void this.connect();
-    }, backoff);
+    }, this.reconnect.delayMs);
   }
 
   private installAlarm(): void {
@@ -232,8 +273,13 @@ export class CoordinatorClient {
         // CONNECTING: a handshake is already in flight; wait for it.
         return;
       }
-      // CLOSED / CLOSING / null — the socket is gone and no one is reconnecting it
-      // (setTimeout-based scheduleReconnect doesn't survive SW sleep). Re-open.
+      // CLOSED / CLOSING / null — the socket is gone and setTimeout-based
+      // reconnects do not survive SW sleep, so the alarm is the only thing that
+      // can revive it. It must still respect the backoff and dormancy, though:
+      // firing every 15s regardless is what made the exponential backoff
+      // decorative.
+      if (this.reconnect.status === "dormant") return;
+      if (Date.now() < this.nextAttemptAt) return;
       void this.connect();
     };
     chrome.alarms.onAlarm.addListener(this.alarmListener);

@@ -368,10 +368,20 @@ describe("CoordinatorClient.connect", () => {
     expect(client.status).toBe("disconnected");
 
     const chromeMock = (globalThis as unknown as { chrome: { alarms: { _fire: (name: string) => void } } }).chrome;
+
+    // The first close schedules a 1s backoff. Firing the alarm inside that
+    // window must NOT reconnect — the alarm used to ignore the backoff
+    // entirely, which made the exponential delay decorative.
     chromeMock.alarms._fire("atwebpilot-coordinator-heartbeat");
     await vi.advanceTimersByTimeAsync(0);
+    expect(FakeWS.instances.length).toBe(1);
 
-    expect(FakeWS.instances.length).toBe(2);
+    // Once the backoff has elapsed the alarm is the thing that revives it,
+    // since setTimeout does not survive service-worker sleep.
+    await vi.advanceTimersByTimeAsync(1100);
+    chromeMock.alarms._fire("atwebpilot-coordinator-heartbeat");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(FakeWS.instances.length).toBeGreaterThanOrEqual(2);
   });
 
   it("heartbeat alarm does NOT reconnect after intentional disconnect()", async () => {
@@ -404,5 +414,112 @@ describe("CoordinatorClient.connect", () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(FakeWS.instances.length).toBe(1);
+  });
+});
+
+describe("Plan 33 — reconnection has a terminating condition", () => {
+  const make = () =>
+    new CoordinatorClient({
+      ws_url: "ws://localhost:7842",
+      token: "t",
+      worker_id: "w1",
+      savedToolsProvider: async () => [],
+      labelsProvider: async () => []
+    });
+
+  it("starts active with no failures", async () => {
+    expect(make().reconnectState).toMatchObject({ failures: 0, status: "active" });
+  });
+
+  it("a graceful close goes dormant without scheduling a retry", async () => {
+    vi.useFakeTimers();
+    const onDormant = vi.fn();
+    const client = new CoordinatorClient({
+      ws_url: "ws://localhost:7842",
+      token: "t",
+      worker_id: "w1",
+      savedToolsProvider: async () => [],
+      labelsProvider: async () => [],
+      onDormant
+    });
+    await client.connect();
+    const ws = FakeWS.instances[0];
+    ws.readyState = 3;
+    ws.onclose?.({ code: 4000, reason: "server-shutting-down" } as CloseEvent);
+
+    expect(client.reconnectState.status).toBe("dormant");
+    expect(onDormant).toHaveBeenCalled();
+
+    // Nothing revives it, not even a long wait plus the alarm.
+    await vi.advanceTimersByTimeAsync(120_000);
+    const chromeMock = (globalThis as unknown as {
+      chrome: { alarms: { _fire: (n: string) => void } };
+    }).chrome;
+    chromeMock.alarms._fire("atwebpilot-coordinator-heartbeat");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(FakeWS.instances.length).toBe(1);
+  });
+
+  it("goes dormant after ten consecutive failures", async () => {
+    vi.useFakeTimers();
+    const client = make();
+    await client.connect();
+    for (let i = 0; i < 10; i++) {
+      const ws = FakeWS.instances[FakeWS.instances.length - 1];
+      ws.readyState = 3;
+      ws.onclose?.({ code: 1006, reason: "abnormal" } as CloseEvent);
+      await vi.advanceTimersByTimeAsync(60_000);
+    }
+    expect(client.reconnectState.status).toBe("dormant");
+    const before = FakeWS.instances.length;
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(FakeWS.instances.length).toBe(before);
+  });
+
+  it("wakeUp re-arms a dormant client", async () => {
+    vi.useFakeTimers();
+    const client = make();
+    await client.connect();
+    const ws = FakeWS.instances[0];
+    ws.readyState = 3;
+    ws.onclose?.({ code: 4000, reason: "server-shutting-down" } as CloseEvent);
+    expect(client.reconnectState.status).toBe("dormant");
+
+    client.wakeUp();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.reconnectState.status).toBe("active");
+    expect(FakeWS.instances.length).toBe(2);
+  });
+
+  it("wakeUp is a no-op on an active client", async () => {
+    vi.useFakeTimers();
+    const client = make();
+    await client.connect();
+    client.wakeUp();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(FakeWS.instances.length).toBe(1);
+  });
+
+  it("a successful connection resets the failure count", async () => {
+    vi.useFakeTimers();
+    const client = make();
+    await client.connect();
+    FakeWS.instances[0].readyState = 3;
+    FakeWS.instances[0].onclose?.({ code: 1006 } as CloseEvent);
+    expect(client.reconnectState.failures).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(2000);
+    const ws2 = FakeWS.instances[FakeWS.instances.length - 1];
+    ws2.fakeOpen();
+    await vi.advanceTimersByTimeAsync(0);
+    ws2.fakeMessage({
+      type: "WELCOME",
+      nonce: "n",
+      ts: 1,
+      protocol_version: PROTOCOL_VERSION,
+      server_time: 1,
+      heartbeat_interval_ms: 20000
+    });
+    expect(client.reconnectState).toMatchObject({ failures: 0, status: "active" });
   });
 });
