@@ -2,11 +2,9 @@ import { RpcRequest as RpcRequestSchema } from "@atwebpilot/shared/messages";
 import { handleRpc } from "./rpc-handlers";
 import { installTabWatcher } from "./tab-watcher";
 import { installTabCloseArchiver } from "./tab-close-archiver";
-import { CoordinatorClient } from "./coordinator-client";
 import {
   getOrCreateWorkerId,
   loadConfig,
-  loadToken,
   saveConnectionStatus
 } from "./coordinator-state";
 import { handleExec } from "./coordinator-exec";
@@ -21,6 +19,9 @@ import {
 } from "../sidepanel/lib/external-replay";
 import { installSessionBroker } from "./session-broker";
 import { installCdpListeners } from "./recorder/cdp";
+import { CoordinatorPool } from "./coordinator-pool";
+import { approve, decidePairing } from "./pairing-host";
+import type { PairPayload } from "@atwebpilot/shared/pairing";
 
 // Idempotent; only takes effect once the user grants the optional debugger
 // permission and enables the CDP backend in settings.
@@ -98,8 +99,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true;
 });
 
-// --- Coordinator client (Phase 2) ---
-let activeClient: CoordinatorClient | null = null;
+// --- Coordinator connections (Phase 2; a pool since Plan 33) ---
 let activeStateBridge: CoordinatorStateBridge | null = null;
 
 async function buildSavedToolsMetadata(): Promise<
@@ -116,36 +116,57 @@ async function buildSavedToolsMetadata(): Promise<
   }));
 }
 
-export async function startCoordinatorClient(): Promise<void> {
-  if (activeClient) return;
-  const config = await loadConfig();
-  if (!config?.enabled || !config.ws_url) return;
-  const token = await loadToken();
-  const worker_id = await getOrCreateWorkerId();
+let pool: CoordinatorPool | null = null;
+
+function ensurePool(): CoordinatorPool {
+  if (pool) return pool;
   const chatHost = new CoordinatorChatHost();
-  activeStateBridge = new CoordinatorStateBridge({
+  activeStateBridge ??= new CoordinatorStateBridge({
     sendRuntimeMessage: (m) => chrome.runtime.sendMessage(m),
     onRuntimeMessage: (fn) => chrome.runtime.onMessage.addListener(fn),
     offRuntimeMessage: (fn) => chrome.runtime.onMessage.removeListener(fn)
   });
-  activeClient = new CoordinatorClient({
-    ws_url: config.ws_url,
-    token,
-    worker_id,
-    savedToolsProvider: buildSavedToolsMetadata,
-    labelsProvider: async () => [],
-    onExec: handleExec,
-    onChat: (m, send) => chatHost.handle(m, send),
-    onReadState: (m, send) => activeStateBridge!.handle(m, send),
-    onStatusChange: (status) => {
-      void saveConnectionStatus({
-        status,
-        ws_url: config.ws_url,
-        updated_at: Date.now()
-      });
-    }
+  pool = new CoordinatorPool({
+    clientOptions: (endpoint) => ({
+      token: undefined,
+      worker_id: workerIdCache ?? "worker_pending",
+      savedToolsProvider: buildSavedToolsMetadata,
+      labelsProvider: async () => [],
+      onExec: handleExec,
+      onChat: (m, send) => chatHost.handle(m, send),
+      onReadState: (m, send) => activeStateBridge!.handle(m, send),
+      onStatusChange: (status) => {
+        void saveConnectionStatus({ status, ws_url: endpoint, updated_at: Date.now() });
+      }
+    })
   });
-  await activeClient.connect();
+  return pool;
+}
+
+let workerIdCache: string | null = null;
+
+export function coordinatorPool(): CoordinatorPool {
+  return ensurePool();
+}
+
+/**
+ * The legacy hand-configured URL still works: it simply becomes one pool
+ * entry alongside anything paired.
+ */
+export async function startCoordinatorClient(): Promise<void> {
+  workerIdCache = await getOrCreateWorkerId();
+  const config = await loadConfig();
+  if (!config?.enabled || !config.ws_url) return;
+  const p = ensurePool();
+  if (p.list().some((e) => e.sessionId === "legacy")) return;
+  await p.add({
+    endpoint: config.ws_url,
+    installId: "legacy",
+    sessionId: "legacy",
+    label: "手动配置",
+    pid: 0,
+    port: 0
+  });
 }
 
 export async function stopCoordinatorClient(): Promise<void> {
@@ -153,10 +174,37 @@ export async function stopCoordinatorClient(): Promise<void> {
     activeStateBridge.dispose();
     activeStateBridge = null;
   }
-  if (!activeClient) return;
-  await activeClient.disconnect();
-  activeClient = null;
+  if (!pool) return;
+  await pool.disposeAll();
+  pool = null;
 }
+
+/** Pairing round-trip with the content-script relay. */
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  const m = msg as { type?: string; payload?: PairPayload; approved?: boolean };
+  if (m?.type === "pairing.request" && m.payload) {
+    void decidePairing(m.payload).then(async (decision) => {
+      if (decision === "trusted") {
+        workerIdCache ??= await getOrCreateWorkerId();
+        await ensurePool().addFromPairing(m.payload!);
+      }
+      sendResponse({ decision });
+    });
+    return true;
+  }
+  if (m?.type === "pairing.decision" && m.payload) {
+    void (async () => {
+      if (m.approved) {
+        await approve(m.payload!);
+        workerIdCache ??= await getOrCreateWorkerId();
+        await ensurePool().addFromPairing(m.payload!);
+      }
+      sendResponse({ ok: true });
+    })();
+    return true;
+  }
+  return false;
+});
 
 void startCoordinatorClient();
 
