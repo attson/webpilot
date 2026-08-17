@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   HelloSchema,
+  SessionOpenedSchema,
+  TabsUpdateSchema,
   ExecSchema,
   ResultSchema,
   ClientToServerSchema,
@@ -155,5 +157,52 @@ describe("HELLO.supported_tools (Plan 32)", () => {
 
   it("rejects a non-string list", () => {
     expect(HelloSchema.safeParse({ ...base, supported_tools: [1, 2] }).success).toBe(false);
+  });
+});
+
+describe("Plan 33 — multi-session messages", () => {
+  const env = { nonce: "n", ts: 1, protocol_version: 1 };
+
+  it("accepts SESSION_OPENED", () => {
+    const r = SessionOpenedSchema.safeParse({
+      ...env,
+      type: "SESSION_OPENED",
+      session_id: "s1",
+      tab_id: "42"
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects SESSION_OPENED without a tab", () => {
+    expect(
+      SessionOpenedSchema.safeParse({ ...env, type: "SESSION_OPENED", session_id: "s1" }).success
+    ).toBe(false);
+  });
+
+  it("accepts TABS_UPDATE with derived fields", () => {
+    const r = TabsUpdateSchema.safeParse({
+      ...env,
+      type: "TABS_UPDATE",
+      tabs: [
+        { tab_id: "1", url: "https://a.test", mine: true, busy: false },
+        { tab_id: "2", url: "https://b.test", busy: true, busy_label: "~/code/wanxin" }
+      ]
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("keeps the derived tab fields optional in HELLO", () => {
+    const base = {
+      ...env,
+      type: "HELLO",
+      worker_id: "w",
+      fingerprint: { ext_hash: "x", os: "mac", chrome: "120" },
+      capabilities: [],
+      attended: true,
+      saved_tools: [],
+      labels: [],
+      available_tabs: [{ tab_id: "1", url: "https://a.test" }]
+    };
+    expect(HelloSchema.safeParse(base).success).toBe(true);
   });
 });

@@ -11,6 +11,19 @@ const StepSchema = z.object({
 
 // === C → S messages ===
 
+/**
+ * Ownership fields derived per connection (Plan 33). Optional throughout:
+ * an extension predating multi-session pairing simply omits them.
+ */
+const DerivedTabFields = {
+  /** true when the receiving connection owns this tab */
+  mine: z.boolean().optional(),
+  /** true when some *other* connection owns it */
+  busy: z.boolean().optional(),
+  /** the owning session's label, present only when busy */
+  busy_label: z.string().optional()
+};
+
 export const HelloSchema = z.object({
   ...EnvelopeFields,
   type: z.literal("HELLO"),
@@ -33,7 +46,8 @@ export const HelloSchema = z.object({
     z.object({
       tab_id: z.string(),
       url: z.string(),
-      title: z.string().optional()
+      title: z.string().optional(),
+      ...DerivedTabFields
     })
   ),
   saved_tools: z.array(
@@ -212,6 +226,26 @@ export const SidepanelStateReplySchema = z.object({
 
 // === Discriminated unions ===
 
+export const SessionOpenedSchema = z.object({
+  ...EnvelopeFields,
+  type: z.literal("SESSION_OPENED"),
+  session_id: z.string(),
+  tab_id: z.string()
+});
+
+export const TabsUpdateSchema = z.object({
+  ...EnvelopeFields,
+  type: z.literal("TABS_UPDATE"),
+  tabs: z.array(
+    z.object({
+      tab_id: z.string(),
+      url: z.string(),
+      title: z.string().optional(),
+      ...DerivedTabFields
+    })
+  )
+});
+
 export const ClientToServerSchema = z.discriminatedUnion("type", [
   HelloSchema,
   PingSchema,
@@ -221,7 +255,8 @@ export const ClientToServerSchema = z.discriminatedUnion("type", [
   SessionEventSchema,
   StateSnapshotSchema,
   ChatEventSchema,
-  SidepanelStateReplySchema
+  SidepanelStateReplySchema,
+  TabsUpdateSchema
 ]);
 
 export const ServerToClientSchema = z.discriminatedUnion("type", [
@@ -232,7 +267,8 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   CloseSessionSchema,
   StartChatSessionSchema,
   AbortSessionSchema,
-  ReadSidepanelStateSchema
+  ReadSidepanelStateSchema,
+  SessionOpenedSchema
 ]);
 
 export const ProtocolMessageSchema = z.union([ClientToServerSchema, ServerToClientSchema]);
@@ -242,6 +278,8 @@ export type ServerToClient = z.infer<typeof ServerToClientSchema>;
 export type ProtocolMessage = z.infer<typeof ProtocolMessageSchema>;
 
 export type Hello = z.infer<typeof HelloSchema>;
+export type SessionOpened = z.infer<typeof SessionOpenedSchema>;
+export type TabsUpdate = z.infer<typeof TabsUpdateSchema>;
 export type Welcome = z.infer<typeof WelcomeSchema>;
 export type Exec = z.infer<typeof ExecSchema>;
 export type Result = z.infer<typeof ResultSchema>;
