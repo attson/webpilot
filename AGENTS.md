@@ -307,6 +307,29 @@ Also required for every new tool: `packages/shared/src/capability/tool-mapping.t
 (an exhaustive switch — TypeScript will not compile until you add an arm) and
 `packages/shared/src/capability/catalog.ts` if it needs a new capability.
 
+### Multi-session pairing (Plan 33)
+
+The MCP server process is the WS **server**; the extension is the **client** —
+an MV3 service worker cannot listen on a port. Everything else follows from
+that: ports collide because every server binds one, and discovery must be
+extension-initiated because a server cannot address the browser first.
+
+- `mcp-server/src/ensure-hub.ts` binds lazily, on the first tool that needs a
+  worker. `Deps.peek()` exists so `tools/list` never triggers a bind.
+- `mcp-server/src/identity.ts` holds the install-level identity and the
+  remembered port. Trust is per install, never per directory — see the spec for
+  why directory scoping is presentation rather than protection.
+- `content/pairing-relay.ts` renders the approval overlay. The served page is a
+  carrier only; never move the Allow button onto it.
+- `background/coordinator-pool.ts` holds one `CoordinatorClient` per session.
+  `background/tab-ownership.ts` + `tabs-broadcast.ts` keep each connection's
+  `available_tabs` current and mark other sessions' tabs `busy`.
+
+Reconnection has a terminating condition (`shared/src/pairing/reconnect.ts`).
+If you touch the heartbeat alarm, keep it honouring both the pending backoff and
+dormancy — it previously reconnected any CLOSED socket on sight, which made the
+exponential backoff decorative.
+
 ### Page-event recorder (Plan 32)
 
 `console` / `network` / `dialog` are captured by a recorder with two backends

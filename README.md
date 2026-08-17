@@ -21,10 +21,14 @@ v0.0.53 之后，大页面不再靠把整页 `body` 塞进模型。AtWebPilot �
     claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 
 然后下载 [最新 release zip](https://github.com/attson/atwebpilot/releases/latest)，在
-`chrome://extensions` 加载已解压扩展，扩展设置 → Coordinator 填
-`ws://127.0.0.1:8787/worker` → 连接。
+`chrome://extensions` 加载已解压扩展。**不用手填端口** —— AI 第一次要操作网页时，
+会自动打开一个配对页请你确认，点「允许」即接入。之后本机会话都免确认。
 
-可选环境变量：`ATWEBPILOT_WS_PORT`（默认 8787）、`ATWEBPILOT_WS_TOKEN`（可选）。
+多个 Claude Code 会话可以同时接入同一个浏览器，各自一条连接；`list_tabs` 会标出哪些
+tab 正被别的会话占用，AI 通常直接开个新页就绕开了。
+
+可选环境变量：`ATWEBPILOT_WS_PORT`（固定端口，默认自动选空闲端口并复用上次的）、
+`ATWEBPILOT_WS_TOKEN`（可选）。
 
 ---
 
@@ -232,7 +236,7 @@ URL 模式   [https://*.pinduoduo.com/**]
 
 ```bash
 pnpm typecheck      # pnpm -r typecheck across shared / coordinator / extension / mcp-server
-pnpm test           # 全量测试 ~1023（774 extension + 155 shared + 45 coordinator + 49 mcp-server）
+pnpm test           # 全量测试 ~1122（822 extension + 174 shared + 45 coordinator + 81 mcp-server）
 pnpm test:watch
 pnpm build          # 产出 packages/extension/dist/
 ```
@@ -259,8 +263,8 @@ node docs/superpowers/scripts/mini-coordinator.mjs
 `packages/mcp-server` 是一个 stdio MCP server，同时起本地 ws 服务器。Claude Code 连它后可调
 `list_tabs / open_session / browser_* / get_quota / close_session` 在网页上读写采。
 
-    pnpm -F @atwebpilot/mcp-server start   # 监听 ws://127.0.0.1:8787/worker（tsx 直跑）
-    # 扩展设置页填该 URL + token → 连接；Claude Code 侧把它配成 MCP server
+    pnpm -F @atwebpilot/mcp-server start   # 不绑端口；首次用到浏览器时才绑并弹配对页
+    # Claude Code 侧把它配成 MCP server
 
 Plan 32 之后 MCP 面从 19 个扩到 **54 个** `browser_*`——扩展的全部内置工具，只挡掉 `askUser` /
 `attachTab` / `detachTab`。嫌工具列表吃上下文可以设 `ATWEBPILOT_MCP_TOOLS=parity` 只留对标
@@ -270,6 +274,22 @@ playwright-ext 的子集。工具列表与扩展上报的 `supported_tools` 求�
 drag / drop / resize / navigateBack / findElements、整页截图，以及 click 的
 `doubleClick`/`button`/`modifiers`、fillInput 的 `slowly`/`submit`、waitFor 的 `text`/`textGone`。
 对照表见 `packages/mcp-server/README.md`。
+
+### 多会话配对（Plan 33）
+
+端口是**惰性绑定**的：会话启动什么都不做，直到 AI 真的要操作网页才绑一个空闲端口
+（优先复用上次那个），并打开 `http://127.0.0.1:<port>/pair`。那个页面只负责把端口告诉扩展；
+**批准 UI 由扩展自己注入**（closed shadow DOM），因为让请求方画自己的「允许」按钮等于让它
+自己签发许可。
+
+信任是**安装级**的：`~/.atwebpilot/identity.json`（0600）里一份 `installId` + `secret`，
+批准一次之后本机所有会话免确认。`sessionId` 和工作目录只用于展示与管理，不参与信任判断 ——
+按目录分身份的安全收益是假的（能读 home 目录的进程可以声称任意 cwd），却会让 git worktree
+和目录改名莫名其妙地反复询问。
+
+重连有了终止条件：server 正常退出会发 close code 4000，扩展**一次都不重试**；非正常退出则
+连续失败 10 次后转 dormant，可在设置页手动重连。（此前 15 秒的 alarm 会无视退避一直重连，
+指数退避形同虚设。）
 
 ### 页面事件录制（Plan 32）
 

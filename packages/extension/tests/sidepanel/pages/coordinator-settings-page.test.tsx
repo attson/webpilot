@@ -43,6 +43,9 @@ function fakeChromeStorage(initial: Record<string, unknown> = {}) {
     })
   };
   return {
+    // Plan 33: the page polls the worker for connected sessions.
+    runtime: { sendMessage: vi.fn(async () => ({ sessions: [] })) },
+    permissions: { contains: vi.fn(async () => false) },
     storage: {
       local,
       onChanged: {

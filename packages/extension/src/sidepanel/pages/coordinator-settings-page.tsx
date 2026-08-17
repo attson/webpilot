@@ -16,6 +16,9 @@ import {
   cdpRecorderEnabled,
   setCdpRecorderEnabled
 } from "@/background/recorder/cdp-permission";
+import { listTrusted, revokeTrust } from "@/background/pairing-host";
+import type { TrustRecord } from "@atwebpilot/shared/pairing";
+import type { PoolEntry } from "@/background/coordinator-pool";
 
 const DEFAULT_WS_URL = "ws://localhost:8787/worker";
 const CONNECTION_STATUS_STALE_MS = 45_000;
@@ -60,6 +63,8 @@ export function CoordinatorSettingsPage() {
   const [showToken, setShowToken] = useState(false);
   const [copied, setCopied] = useState(false);
   const [cdpEnabled, setCdpEnabled] = useState(false);
+  const [sessions, setSessions] = useState<PoolEntry[]>([]);
+  const [trusted, setTrusted] = useState<TrustRecord[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -84,6 +89,19 @@ export function CoordinatorSettingsPage() {
 
   useEffect(() => {
     void cdpRecorderEnabled().then(setCdpEnabled);
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => {
+      void chrome.runtime
+        ?.sendMessage({ type: "pairing.listSessions" })
+        .then((r: { sessions?: PoolEntry[] } | undefined) => setSessions(r?.sessions ?? []))
+        .catch(() => setSessions([]));
+      void listTrusted().then(setTrusted);
+    };
+    refresh();
+    const timer = setInterval(refresh, 3000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -269,6 +287,83 @@ export function CoordinatorSettingsPage() {
           </span>
         </span>
       </label>
+
+      <section className="border-t pt-3">
+        <h3 className="text-sm font-medium mb-1">已接入的会话</h3>
+        {sessions.length === 0 ? (
+          <p className="text-xs text-gray-500">
+            还没有会话接入。在 Claude Code 里让 AI 操作网页时，会自动打开一个配对页请你确认。
+          </p>
+        ) : (
+          <ul className="text-xs space-y-1">
+            {sessions.map((s) => (
+              <li key={s.sessionId} className="flex items-center gap-2">
+                <span className="flex-1 truncate" title={s.endpoint}>
+                  {s.label}
+                  {s.pid > 0 ? ` · pid ${s.pid}` : ""}
+                  {s.port > 0 ? ` · :${s.port}` : ""}
+                </span>
+                <span className={s.status === "connected" ? "text-green-600" : "text-gray-500"}>
+                  {s.status}
+                </span>
+                {s.status === "dormant" ? (
+                  <button
+                    className="underline"
+                    onClick={() => {
+                      void chrome.runtime.sendMessage({
+                        type: "pairing.wake",
+                        sessionId: s.sessionId
+                      });
+                    }}
+                  >
+                    重连
+                  </button>
+                ) : (
+                  <button
+                    className="underline"
+                    onClick={() => {
+                      void chrome.runtime.sendMessage({
+                        type: "pairing.disconnect",
+                        sessionId: s.sessionId
+                      });
+                    }}
+                  >
+                    断开
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="border-t pt-3">
+        <h3 className="text-sm font-medium mb-1">已信任</h3>
+        {trusted.length === 0 ? (
+          <p className="text-xs text-gray-500">尚未授权任何本机安装。</p>
+        ) : (
+          <ul className="text-xs space-y-1">
+            {trusted.map((t) => (
+              <li key={t.installId} className="flex items-center gap-2">
+                <span className="flex-1 truncate">
+                  {t.installId} · 授权于 {new Date(t.approvedAt).toLocaleDateString()}
+                </span>
+                <button
+                  className="underline text-red-600"
+                  onClick={() => {
+                    void revokeTrust(t.installId).then(() => void listTrusted().then(setTrusted));
+                  }}
+                >
+                  撤销
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-xs text-gray-500 mt-1">
+          断开只结束当前连接（会话会重连）；撤销才会清除凭据，此后每个会话都要重新确认。
+        </p>
+      </section>
 
       <div className="border-t pt-3 text-xs text-gray-500">
         <div>配置: {enabled ? "已启用" : "已关闭"}</div>

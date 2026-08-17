@@ -204,7 +204,12 @@ export async function stopCoordinatorClient(): Promise<void> {
 
 /** Pairing round-trip with the content-script relay. */
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  const m = msg as { type?: string; payload?: PairPayload; approved?: boolean };
+  const m = msg as {
+    type?: string;
+    payload?: PairPayload;
+    approved?: boolean;
+    sessionId?: string;
+  };
   if (m?.type === "pairing.request" && m.payload) {
     void decidePairing(m.payload).then(async (decision) => {
       if (decision === "trusted") {
@@ -214,6 +219,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       sendResponse({ decision });
     });
     return true;
+  }
+  if (m?.type === "pairing.listSessions") {
+    sendResponse({ sessions: pool ? pool.list() : [] });
+    return false;
+  }
+  if (m?.type === "pairing.disconnect" && typeof m.sessionId === "string") {
+    void ensurePool().remove(m.sessionId).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (m?.type === "pairing.wake" && typeof m.sessionId === "string") {
+    ensurePool().wake(m.sessionId);
+    sendResponse({ ok: true });
+    return false;
   }
   if (m?.type === "pairing.decision" && m.payload) {
     void (async () => {
