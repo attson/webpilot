@@ -14,6 +14,7 @@
     "./capability": "./src/capability/index.ts",
     "./mcp-tools": "./src/mcp-tools/index.ts",
     "./recorder": "./src/recorder/index.ts",
+    "./pairing": "./src/pairing/index.ts",
     "./llm": "./src/llm/index.ts",
     "./preset": "./src/preset.ts",
     "./presets": "./src/presets/index.ts",
