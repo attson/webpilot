@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Coordinator, FakeClock, FakeIdGen, type Worker } from "@atwebpilot/coordinator";
 import { LEGACY_TOOLS, buildToolList } from "../src/mcp-server";
+import { staticDeps } from "../src/handlers";
 import { helloToWorker } from "../src/wire";
 import type { Hello } from "@atwebpilot/shared/protocol";
 
@@ -22,12 +23,12 @@ function worker(supported?: string[]): Worker {
 
 function depsWith(w?: Worker) {
   const coordinator = new Coordinator({
-    hub: {} as never,
+    hub: { send: async () => undefined } as never,
     clock: new FakeClock(0),
     idGen: new FakeIdGen()
   });
   if (w) coordinator.registerWorker(w);
-  return { coordinator, hub: { exec: async () => ({}) } as never };
+  return staticDeps(coordinator, { exec: async () => ({}) } as never);
 }
 
 const browserNames = (list: Array<{ name: string }>) =>

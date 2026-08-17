@@ -33,6 +33,10 @@ export interface TabInfo {
   tab_id: string;
   url: string;
   title?: string;
+  /** Plan 33 — ownership as seen by the connection this list was built for. */
+  mine?: boolean;
+  busy?: boolean;
+  busy_label?: string;
 }
 
 export interface SavedToolMetadata {

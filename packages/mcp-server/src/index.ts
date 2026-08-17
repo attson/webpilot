@@ -1,24 +1,41 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Coordinator, DefaultClock, DefaultIdGen } from "@atwebpilot/coordinator";
-import { LoopbackWSHub } from "./loopback-ws-hub";
+import { DefaultClock, DefaultIdGen } from "@atwebpilot/coordinator";
 import { createMcpServer } from "./mcp-server";
-import { installWire } from "./wire";
+import { createHubEnsurer, defaultOpenUrl } from "./ensure-hub";
 
 // ⚠ stdout 是 MCP 通道，日志一律 console.error。
 async function main(): Promise<void> {
-  const port = Number(process.env.ATWEBPILOT_WS_PORT ?? 8787);
+  const explicitPort = process.env.ATWEBPILOT_WS_PORT
+    ? Number(process.env.ATWEBPILOT_WS_PORT)
+    : undefined;
   const token = process.env.ATWEBPILOT_WS_TOKEN || undefined;
 
   const clock = new DefaultClock();
   const idGen = new DefaultIdGen();
-  const hub = new LoopbackWSHub({ port, token, clock, idGen });
-  await hub.ready();
-  const coordinator = new Coordinator({ hub, clock, idGen });
-  installWire(hub, coordinator, clock);
 
-  const server = createMcpServer({ coordinator, hub });
+  // No port is bound here. A session that never touches a page costs nothing,
+  // and two such sessions cannot collide.
+  const deps = createHubEnsurer({
+    clock,
+    idGen,
+    explicitPort,
+    token,
+    openUrl: defaultOpenUrl
+  });
+
+  const server = createMcpServer(deps);
   await server.connect(new StdioServerTransport());
-  console.error(`[atwebpilot-mcp] ws://127.0.0.1:${port}/worker ready; stdio MCP connected`);
+  console.error("[atwebpilot-mcp] stdio MCP connected; ws port binds on first browser use");
+
+  const shutdown = () => {
+    const bundle = deps.peek();
+    // Tell any connected extension this is deliberate so it drops the endpoint
+    // instead of retrying it for the rest of the browser session.
+    void (bundle?.hub.shutdown?.() ?? Promise.resolve()).finally(() => process.exit(0));
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
+  process.stdin.on("close", shutdown);
 }
 
 main().catch((e) => { console.error("[atwebpilot-mcp] fatal", e); process.exit(1); });

@@ -8,6 +8,7 @@ import { WorkerRegistry } from "./worker-registry";
 import type { Clock, IdGen } from "./clock";
 import type { WSHub } from "./ws-hub";
 import type { Session, Worker, Quota } from "./types";
+import { PROTOCOL_VERSION } from "@atwebpilot/shared/protocol";
 
 export interface CoordinatorDeps {
   hub: WSHub;
@@ -30,9 +31,13 @@ export class Coordinator {
   readonly catalog: Catalog;
   readonly dispatcher: Dispatcher;
   readonly hub: WSHub;
+  private readonly clock: Clock;
+  private readonly idGen: IdGen;
 
   constructor(deps: CoordinatorDeps) {
     this.hub = deps.hub;
+    this.clock = deps.clock;
+    this.idGen = deps.idGen;
     this.sessions = new SessionManager(deps.clock, deps.idGen);
     this.workers = new WorkerRegistry(deps.clock);
     this.catalog = new Catalog(this.workers);
@@ -56,7 +61,24 @@ export class Coordinator {
 
   // === Session lifecycle ===
   openSession(input: OpenSessionInput): Session {
-    return this.sessions.open(input);
+    const session = this.sessions.open(input);
+    // The extension cannot see open_session — it is server-local — so without
+    // this it would have to infer tab ownership from whichever EXEC happened
+    // to arrive first.
+    void this.hub
+      .send(session.worker_id, {
+        type: "SESSION_OPENED",
+        nonce: this.idGen.next("nonce"),
+        ts: this.clock.now(),
+        protocol_version: PROTOCOL_VERSION,
+        session_id: session.id,
+        tab_id: session.tab_id
+      })
+      .catch(() => {
+        // A worker that vanished between openSession and here is handled by
+        // the disconnect path; ownership is advisory either way.
+      });
+    return session;
   }
 
   closeSession(id: string): void {

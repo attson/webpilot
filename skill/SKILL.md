@@ -12,7 +12,11 @@ When this skill is loaded, you can drive any open tab through these tools
 
 ### Control plane
 
-- `list_tabs` — enumerate Chrome tabs you can operate on
+- `list_tabs` — enumerate Chrome tabs you can operate on. Entries carry `busy`
+  and `busy_label` when **another** Claude Code session is already driving that
+  tab, and `mine` for tabs you hold. This is advisory — nothing blocks you — but
+  contending for a tab another agent is typing into is rarely what you want.
+  Open your own with `browser_openTab` instead.
 - `open_session(tabId)` — pin a tab so subsequent calls target it
 - `close_session(sessionId)` — release the tab
 - `get_quota(sessionId)` — see remaining requests this minute
@@ -182,3 +186,16 @@ When a page misbehaves, this ordering costs the least context:
 Poll incrementally with `sinceId` rather than re-reading the whole buffer. If a
 result reports `dropped > 0`, the ring overflowed and you are seeing a window,
 not the whole history.
+
+## Multiple sessions share one browser
+
+Several Claude Code sessions can be attached to the same browser at once, each
+through its own connection. Two consequences worth knowing:
+
+- **The first call that needs the browser may fail with a pairing message.** The
+  MCP server binds its port lazily and opens a confirmation page in the user's
+  browser. Tell the user to click Allow, then retry the same call. Once approved,
+  every later session on that machine connects silently.
+- **Pick a free tab.** `list_tabs` marks tabs held by other sessions as `busy`.
+  Prefer an unowned tab, or open your own — two agents typing into one form
+  produces failures that look like your own tool calls not working.
