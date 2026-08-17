@@ -2,8 +2,12 @@ import { ContentRequest } from "@atwebpilot/shared/messages";
 import type { Json } from "@atwebpilot/shared/types";
 import { injectMain } from "./inject-main";
 import { callTool } from "./tools";
+import { installPairingRelay } from "./pairing-relay";
 
 console.info("[atwebpilot] content script loaded on", location.href);
+
+// Listens for the MCP server's pairing page; inert on every other page.
+installPairingRelay();
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const parsed = ContentRequest.safeParse(msg);
