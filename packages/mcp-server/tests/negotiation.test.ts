@@ -23,7 +23,7 @@ function worker(supported?: string[]): Worker {
 
 function depsWith(w?: Worker) {
   const coordinator = new Coordinator({
-    hub: {} as never,
+    hub: { send: async () => undefined } as never,
     clock: new FakeClock(0),
     idGen: new FakeIdGen()
   });

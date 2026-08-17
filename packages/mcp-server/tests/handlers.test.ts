@@ -16,7 +16,7 @@ function fakeWorker(): Worker {
 
 function makeDeps(execResult: Result): { deps: Deps; calls: any[] } {
   const clock = new FakeClock(1000);
-  const coordinator = new Coordinator({ hub: {} as any, clock, idGen: new FakeIdGen() });
+  const coordinator = new Coordinator({ hub: { send: async () => undefined } as any, clock, idGen: new FakeIdGen() });
   coordinator.registerWorker(fakeWorker());
   const calls: any[] = [];
   const hub = { exec: async (worker_id: string, params: any) => { calls.push({ worker_id, params }); return execResult; } };
@@ -42,7 +42,7 @@ describe("control-plane handlers", () => {
 
   it("list_tabs errors when no worker connected", async () => {
     const clock = new FakeClock(0);
-    const coordinator = new Coordinator({ hub: {} as any, clock, idGen: new FakeIdGen() });
+    const coordinator = new Coordinator({ hub: { send: async () => undefined } as any, clock, idGen: new FakeIdGen() });
     await expect(handleListTabs(staticDeps(coordinator, {} as any))).rejects.toThrow(
       /没有浏览器连入/
     );

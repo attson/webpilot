@@ -14,7 +14,7 @@ function fakeWorker(): Worker {
 }
 const okResult: Result = { type: "RESULT", nonce: "n", ts: 1, protocol_version: 1, req_id: "req_1", ok: true, return: { ok: 1 } };
 function deps() {
-  const coordinator = new Coordinator({ hub: {} as any, clock: new FakeClock(0), idGen: new FakeIdGen() });
+  const coordinator = new Coordinator({ hub: { send: async () => undefined } as any, clock: new FakeClock(0), idGen: new FakeIdGen() });
   coordinator.registerWorker(fakeWorker());
   return staticDeps(coordinator, { exec: async () => okResult } as any);
 }
@@ -63,7 +63,7 @@ describe("dispatchCall", () => {
 describe("image results", () => {
   function imageDeps() {
     const coordinator = new Coordinator({
-      hub: {} as any,
+      hub: { send: async () => undefined } as any,
       clock: new FakeClock(0),
       idGen: new FakeIdGen()
     });

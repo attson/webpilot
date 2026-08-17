@@ -9,7 +9,8 @@ import {
   type ReadSidepanelState,
   type Result,
   type ServerToClient,
-  type StartChatSession
+  type StartChatSession,
+  type TabsUpdate
 } from "@atwebpilot/shared/protocol";
 import { buildHello } from "./coordinator-hello";
 import {
@@ -44,6 +45,8 @@ export interface CoordinatorClientOptions {
   onDormant?: () => void;
   /** Fired when the server reports a session bound a tab (Plan 33). */
   onSessionOpened?: (msg: { session_id: string; tab_id: string }) => void;
+  /** Fired when the server closes a session, releasing its tab claim. */
+  onSessionClosed?: (msg: { session_id: string }) => void;
 }
 
 function randomNonce(): string {
@@ -69,6 +72,18 @@ export class CoordinatorClient {
 
   get reconnectState(): ReconnectState {
     return this.reconnect;
+  }
+
+  /** Pushes the caller's view of the tab list. No-op while disconnected. */
+  sendTabsUpdate(tabs: TabsUpdate["tabs"]): void {
+    if (this.ws?.readyState !== 1) return;
+    this.send({
+      type: "TABS_UPDATE",
+      nonce: randomNonce(),
+      ts: Date.now(),
+      protocol_version: PROTOCOL_VERSION,
+      tabs
+    });
   }
 
   /** Re-arms a dormant client: manual reconnect, re-pairing, browser restart. */
@@ -170,8 +185,15 @@ export class CoordinatorClient {
           console.error("[coordinator-client] onExec threw", err);
         }
         return;
+      case "SESSION_OPENED":
+        // The only signal the extension gets that a session has bound a tab;
+        // open_session itself is server-local.
+        this.opts.onSessionOpened?.({ session_id: msg.session_id, tab_id: msg.tab_id });
+        return;
       case "CLOSE_SESSION":
-        // Phase 2: ignore — sessions are coordinator-managed
+        // Sessions are coordinator-managed; the extension only tracks the tab
+        // claim so list_tabs can report it as busy to other connections.
+        this.opts.onSessionClosed?.({ session_id: msg.session_id });
         return;
       case "START_CHAT_SESSION":
       case "ABORT_SESSION":

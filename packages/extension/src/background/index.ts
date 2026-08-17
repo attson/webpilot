@@ -20,6 +20,8 @@ import {
 import { installSessionBroker } from "./session-broker";
 import { installCdpListeners } from "./recorder/cdp";
 import { CoordinatorPool } from "./coordinator-pool";
+import { TabOwnership } from "./tab-ownership";
+import { installTabsBroadcast } from "./tabs-broadcast";
 import { approve, decidePairing } from "./pairing-host";
 import type { PairPayload } from "@atwebpilot/shared/pairing";
 
@@ -117,6 +119,8 @@ async function buildSavedToolsMetadata(): Promise<
 }
 
 let pool: CoordinatorPool | null = null;
+const tabOwnership = new TabOwnership();
+let stopTabsBroadcast: (() => void) | null = null;
 
 function ensurePool(): CoordinatorPool {
   if (pool) return pool;
@@ -127,7 +131,7 @@ function ensurePool(): CoordinatorPool {
     offRuntimeMessage: (fn) => chrome.runtime.onMessage.removeListener(fn)
   });
   pool = new CoordinatorPool({
-    clientOptions: (endpoint) => ({
+    clientOptions: (endpoint, connectionId) => ({
       token: undefined,
       worker_id: workerIdCache ?? "worker_pending",
       savedToolsProvider: buildSavedToolsMetadata,
@@ -135,11 +139,20 @@ function ensurePool(): CoordinatorPool {
       onExec: handleExec,
       onChat: (m, send) => chatHost.handle(m, send),
       onReadState: (m, send) => activeStateBridge!.handle(m, send),
+      onSessionOpened: ({ session_id, tab_id }) =>
+        tabOwnership.claim(tab_id, {
+          connectionId,
+          sessionId: session_id,
+          label: poolLabelFor(connectionId)
+        }),
+      onSessionClosed: ({ session_id }) => tabOwnership.releaseBySession(session_id),
       onStatusChange: (status) => {
         void saveConnectionStatus({ status, ws_url: endpoint, updated_at: Date.now() });
       }
     })
   });
+  stopTabsBroadcast?.();
+  stopTabsBroadcast = installTabsBroadcast({ pool, ownership: tabOwnership });
   return pool;
 }
 
@@ -147,6 +160,14 @@ let workerIdCache: string | null = null;
 
 export function coordinatorPool(): CoordinatorPool {
   return ensurePool();
+}
+
+export function tabOwnershipRegistry(): TabOwnership {
+  return tabOwnership;
+}
+
+function poolLabelFor(connectionId: string): string {
+  return pool?.list().find((e) => e.sessionId === connectionId)?.label ?? connectionId;
 }
 
 /**
@@ -174,6 +195,8 @@ export async function stopCoordinatorClient(): Promise<void> {
     activeStateBridge.dispose();
     activeStateBridge = null;
   }
+  stopTabsBroadcast?.();
+  stopTabsBroadcast = null;
   if (!pool) return;
   await pool.disposeAll();
   pool = null;

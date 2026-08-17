@@ -27,6 +27,13 @@ export function installWire(hub: LoopbackWSHub, coordinator: Coordinator, clock:
         coordinator.registerWorker(helloToWorker(msg, clock.now()));
         break;
       case "PING": coordinator.heartbeatWorker(worker_id); break;
+      case "TABS_UPDATE": {
+        // available_tabs used to be frozen at HELLO time, so list_tabs
+        // reported the browser as it stood when the extension connected.
+        const w = coordinator.workers.get(worker_id);
+        if (w) w.available_tabs = msg.tabs.map((t) => ({ ...t }));
+        break;
+      }
       default: break;
     }
   });
