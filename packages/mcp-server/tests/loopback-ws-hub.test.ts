@@ -221,3 +221,69 @@ describe("LoopbackWSHub", () => {
     expect(received.length).toBe(beforeClose);
   });
 });
+
+describe("Plan 33 — pairing page and lifecycle", () => {
+  let extra: LoopbackWSHub | null = null;
+  afterEach(async () => {
+    if (extra) await extra.close();
+    extra = null;
+  });
+
+  const payload = {
+    v: 1 as const,
+    installId: "inst_abc",
+    secret: "s",
+    sessionId: "sess_1",
+    label: "~/code/caiji2",
+    pid: 1,
+    port: 0
+  };
+
+  it("serves the pairing page at /pair", async () => {
+    hub = new LoopbackWSHub({
+      port: 0,
+      clock: new DefaultClock(),
+      idGen: new DefaultIdGen(),
+      pairPayload: () => payload
+    });
+    const port = await hub.ready();
+    const res = await fetch(`http://127.0.0.1:${port}/pair`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(await res.text()).toContain("inst_abc");
+  });
+
+  it("404s anything else", async () => {
+    hub = new LoopbackWSHub({
+      port: 0,
+      clock: new DefaultClock(),
+      idGen: new DefaultIdGen(),
+      pairPayload: () => payload
+    });
+    const port = await hub.ready();
+    expect((await fetch(`http://127.0.0.1:${port}/nope`)).status).toBe(404);
+  });
+
+  it("reports 503 when no pairing payload is configured", async () => {
+    hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen() });
+    const port = await hub.ready();
+    expect((await fetch(`http://127.0.0.1:${port}/pair`)).status).toBe(503);
+  });
+
+  it("closes workers with the graceful code on shutdown", async () => {
+    hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen() });
+    const port = await hub.ready();
+    const ws = await connectWorker(port);
+    const closed = new Promise<number>((res) => ws.on("close", (code) => res(code)));
+    await hub.shutdown();
+    hub = null;
+    expect(await closed).toBe(4000);
+  });
+
+  it("rejects ready() with an actionable message when the port is taken", async () => {
+    hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen() });
+    const port = await hub.ready();
+    extra = new LoopbackWSHub({ port, clock: new DefaultClock(), idGen: new DefaultIdGen() });
+    await expect(extra.ready()).rejects.toThrow(/already in use[\s\S]*ATWEBPILOT_WS_PORT/);
+  });
+});

@@ -1,4 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
+import { createServer, type Server as HttpServer } from "node:http";
+import { GRACEFUL_CLOSE_CODE, GRACEFUL_CLOSE_REASON } from "@atwebpilot/shared/pairing";
 import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import {
@@ -11,6 +13,7 @@ import {
 } from "@atwebpilot/shared/protocol";
 import type { Json } from "@atwebpilot/shared";
 import type { WSHub, Clock, IdGen } from "@atwebpilot/coordinator";
+import { renderPairPage } from "./pair-page";
 
 const HEARTBEAT_INTERVAL_MS = 20000;
 const DEFAULT_KEEPALIVE_INTERVAL_MS = 15000;
@@ -26,6 +29,11 @@ export interface LoopbackWSHubOpts {
   // timer, so a sub-30s tick keeps the SW alive without the extension having
   // to fight Chrome's alarm clamp. Set to 0 to disable.
   keepaliveIntervalMs?: number;
+  /**
+   * Supplies the payload served at GET /pair. Omitted in tests that only
+   * exercise the websocket surface.
+   */
+  pairPayload?: () => unknown;
 }
 
 type Pending = {
@@ -36,7 +44,10 @@ type Pending = {
 };
 
 export class LoopbackWSHub implements WSHub {
+  private http: HttpServer;
   private wss: WebSocketServer;
+  /** Settled by the constructor so ready() cannot race the listen outcome. */
+  private readyPromise: Promise<number>;
   private byWorker = new Map<string, WebSocket>();
   private workerOf = new Map<WebSocket, string>();
   private pending = new Map<string, Pending>();
@@ -49,22 +60,86 @@ export class LoopbackWSHub implements WSHub {
   constructor(private opts: LoopbackWSHubOpts) {
     this.execTimeoutMs = opts.execTimeoutMs ?? 30000;
     this.keepaliveIntervalMs = opts.keepaliveIntervalMs ?? DEFAULT_KEEPALIVE_INTERVAL_MS;
+    // An explicit http server rather than letting `ws` create one: the pairing
+    // page has to be served from the same port the websocket listens on, since
+    // that port is exactly what the page exists to communicate.
+    this.http = createServer((req, res) => this.onHttpRequest(req, res));
+    // Listeners are attached before listen() and the outcome is captured in a
+    // promise, because an EADDRINUSE fires before any later ready() call could
+    // subscribe. Previously it surfaced as an unhandled 'error' event that
+    // killed the process, reaching the caller as a bare "Connection closed".
+    this.readyPromise = new Promise<number>((resolve, reject) => {
+      this.http.once("listening", () => resolve((this.http.address() as AddressInfo).port));
+      this.http.once("error", (err: NodeJS.ErrnoException) => {
+        reject(
+          err.code === "EADDRINUSE"
+            ? new Error(
+                `port ${opts.port} is already in use — another atwebpilot-mcp may be running; ` +
+                  `set ATWEBPILOT_WS_PORT to choose another port`
+              )
+            : err
+        );
+      });
+    });
     this.wss = new WebSocketServer({
-      port: opts.port,
+      server: this.http,
       path: "/worker",
       handleProtocols: (protocols: Set<string>) => [...protocols][0] ?? false,
     });
     this.wss.on("connection", (socket, req) => this.onConnection(socket, req));
+    // Permanent sinks: the `once` handlers above settle readyPromise, but a
+    // failed listen re-emits through both servers afterwards, and an 'error'
+    // with no listener is a process-level crash.
+    this.http.on("error", () => undefined);
+    this.wss.on("error", () => undefined);
+    this.http.listen(opts.port);
   }
 
   ready(): Promise<number> {
-    return new Promise((resolve) => {
-      const addr = this.wss.address();
-      if (addr) return resolve((addr as AddressInfo).port);
-      this.wss.on("listening", () =>
-        resolve((this.wss.address() as AddressInfo).port)
-      );
+    return this.readyPromise;
+  }
+
+  /** Serves the pairing page; everything else is a 404. */
+  private onHttpRequest(
+    req: { url?: string },
+    res: {
+      writeHead: (code: number, headers?: Record<string, string>) => void;
+      end: (body?: string) => void;
+    }
+  ): void {
+    const path = (req.url ?? "").split("?")[0];
+    if (path !== "/pair") {
+      res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+      res.end("not found");
+      return;
+    }
+    const payload = this.opts.pairPayload?.();
+    if (!payload) {
+      res.writeHead(503, { "content-type": "text/plain; charset=utf-8" });
+      res.end("pairing unavailable");
+      return;
+    }
+    res.writeHead(200, {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store"
     });
+    res.end(renderPairPage(payload as never));
+  }
+
+  /**
+   * Tells connected extensions this shutdown is deliberate, so they drop the
+   * endpoint instead of retrying it for the rest of the browser session.
+   */
+  async shutdown(): Promise<void> {
+    for (const socket of this.wss.clients) {
+      try {
+        socket.close(GRACEFUL_CLOSE_CODE, GRACEFUL_CLOSE_REASON);
+      } catch {
+        // Already closing.
+      }
+    }
+    await new Promise((r) => setTimeout(r, 50));
+    await this.close();
   }
 
   close(): Promise<void> {
@@ -79,7 +154,9 @@ export class LoopbackWSHub implements WSHub {
     for (const socket of this.wss.clients) {
       socket.terminate();
     }
-    return new Promise((resolve) => this.wss.close(() => resolve()));
+    return new Promise((resolve) =>
+      this.wss.close(() => this.http.close(() => resolve()))
+    );
   }
 
   private tokenOk(req: IncomingMessage): boolean {
