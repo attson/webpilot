@@ -38,8 +38,10 @@ export const LEGACY_TOOLS: readonly string[] = [
  * and answering with an empty surface then would be worse than optimistic.
  */
 function workerToolSupport(deps?: Deps): ReadonlySet<string> | undefined {
-  if (!deps) return undefined;
-  const workers = deps.coordinator.workers.list();
+  // peek(), never ensure(): answering tools/list must not bind a port.
+  const bundle = deps?.peek();
+  if (!bundle) return undefined;
+  const workers = bundle.coordinator.workers.list();
   if (workers.length === 0) return undefined;
   const supported = workers[0].supported_tools;
   return supported ?? new Set(LEGACY_TOOLS);
@@ -81,10 +83,10 @@ export async function dispatchCall(deps: Deps, name: string, args: Record<string
       const bundle = readSkillBundle();
       return { content: [{ type: "text", text: bundle.content }] };
     }
-    if (name === "list_tabs") return ok(handleListTabs(deps));
-    if (name === "open_session") return ok(handleOpenSession(deps, args));
-    if (name === "close_session") return ok(handleCloseSession(deps, args));
-    if (name === "get_quota") return ok(handleGetQuota(deps, args));
+    if (name === "list_tabs") return ok(await handleListTabs(deps));
+    if (name === "open_session") return ok(await handleOpenSession(deps, args));
+    if (name === "close_session") return ok(await handleCloseSession(deps, args));
+    if (name === "get_quota") return ok(await handleGetQuota(deps, args));
     const gen = BROWSER_BY_NAME.get(name);
     if (gen) return toolResult(gen, await handleBrowserTool(deps, gen, args));
     return fail(`unknown tool: ${name}`);

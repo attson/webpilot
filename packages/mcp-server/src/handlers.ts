@@ -10,39 +10,80 @@ import type { GeneratedTool } from "./tool-gen";
 
 export interface Hub {
   exec(worker_id: string, params: { session_id: string; tab_id: string; step: { kind: "tool"; tool: string; args: unknown } }): Promise<Result>;
+  /** Closes connected workers with the graceful code. Absent in test doubles. */
+  shutdown?(): Promise<void>;
 }
 
-export interface Deps { coordinator: Coordinator; hub: Hub; }
+export interface HubBundle {
+  coordinator: Coordinator;
+  hub: Hub;
+  port: number;
+}
 
-function singleWorkerId(c: Coordinator): string {
+export interface Deps {
+  /** Binds the ws port on first call. Everything needing a worker awaits it. */
+  ensure(): Promise<HubBundle>;
+  /** Non-binding view — tools/list must not have side effects. */
+  peek(): HubBundle | null;
+  /** URL of the pairing page, once a hub exists. */
+  pairUrl(): string | null;
+}
+
+/** Test helper: a Deps whose hub already exists. */
+export function staticDeps(coordinator: Coordinator, hub: Hub, port = 0): Deps {
+  const bundle: HubBundle = { coordinator, hub, port };
+  return {
+    ensure: async () => bundle,
+    peek: () => bundle,
+    pairUrl: () => `http://127.0.0.1:${port}/pair`
+  };
+}
+
+function singleWorkerId(c: Coordinator, pairUrl: string | null): string {
   const workers = c.workers.list();
-  if (workers.length === 0) throw new Error("没有浏览器连入，请在扩展设置页填 ws://127.0.0.1:<port>/worker 连接");
+  if (workers.length === 0) {
+    throw new Error(
+      "没有浏览器连入。已为你打开配对页" +
+        (pairUrl ? ` ${pairUrl}` : "") +
+        "，在浏览器里确认后重试本次调用。（如果默认浏览器不是装了扩展的那个，请把该地址粘贴过去打开）"
+    );
+  }
   if (workers.length > 1) throw new Error("检测到多个浏览器连入；v1 仅支持单 worker，请只保留一个连接");
   return workers[0].id;
 }
 
-export function handleListTabs(deps: Deps): { tabs: unknown[] } {
-  const w = deps.coordinator.workers.get(singleWorkerId(deps.coordinator))!;
+export async function handleListTabs(deps: Deps): Promise<{ tabs: unknown[] }> {
+  const { coordinator } = await deps.ensure();
+  const w = coordinator.workers.get(singleWorkerId(coordinator, deps.pairUrl()))!;
   return { tabs: w.available_tabs };
 }
 
-export function handleOpenSession(deps: Deps, args: Record<string, unknown>): { session_id: string } {
-  const worker_id = singleWorkerId(deps.coordinator);
+export async function handleOpenSession(
+  deps: Deps,
+  args: Record<string, unknown>
+): Promise<{ session_id: string }> {
+  const { coordinator } = await deps.ensure();
+  const worker_id = singleWorkerId(coordinator, deps.pairUrl());
   const tab_id = String(args.tab_id);
   const requested = Array.isArray(args.capabilities) ? (args.capabilities as unknown[]).map(String).filter(isCapability) : [];
   const scope = new Set<Capability>(requested.length ? requested : (CAPABILITIES as readonly Capability[]));
   const idle_timeout_ms = typeof args.idle_timeout_min === "number" ? args.idle_timeout_min * 60_000 : undefined;
-  const s = deps.coordinator.openSession({ ai_client_fingerprint: "mcp-local", worker_id, tab_id, scope, idle_timeout_ms });
+  const s = coordinator.openSession({ ai_client_fingerprint: "mcp-local", worker_id, tab_id, scope, idle_timeout_ms });
   return { session_id: s.id };
 }
 
-export function handleCloseSession(deps: Deps, args: Record<string, unknown>): { ok: true } {
-  deps.coordinator.closeSession(String(args.session_id));
+export async function handleCloseSession(
+  deps: Deps,
+  args: Record<string, unknown>
+): Promise<{ ok: true }> {
+  const { coordinator } = await deps.ensure();
+  coordinator.closeSession(String(args.session_id));
   return { ok: true };
 }
 
-export function handleGetQuota(deps: Deps, args: Record<string, unknown>): unknown {
-  const q = deps.coordinator.quotaFor(String(args.session_id));
+export async function handleGetQuota(deps: Deps, args: Record<string, unknown>): Promise<unknown> {
+  const { coordinator } = await deps.ensure();
+  const q = coordinator.quotaFor(String(args.session_id));
   if (!q) throw new Error(`session ${String(args.session_id)} not found`);
   return q;
 }
@@ -58,8 +99,9 @@ const NON_BUILTIN_CAPABILITY: Record<string, Capability> = {
 };
 
 export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Record<string, unknown>): Promise<Json> {
+  const { coordinator, hub } = await deps.ensure();
   const session_id = String(args.session_id);
-  const session = deps.coordinator.sessions.get(session_id);
+  const session = coordinator.sessions.get(session_id);
   if (!session) throw new Error(`session ${session_id} not found`);
 
   const { session_id: _omit, ...toolArgs } = args;
@@ -71,10 +113,10 @@ export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Re
   if (gen.stepKind === "js") {
     const source = String((toolArgs as Record<string, unknown>).source ?? "");
     if (!source) throw new Error("browser_runJS: source required");
-    const v = deps.coordinator.validateCall({ session_id, kind: "runJS", unsafe: true });
+    const v = coordinator.validateCall({ session_id, kind: "runJS", unsafe: true });
     if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);
-    deps.coordinator.recordCall(session_id, v.dangerous);
-    const jsResult = await deps.hub.exec(session.worker_id, {
+    coordinator.recordCall(session_id, v.dangerous);
+    const jsResult = await hub.exec(session.worker_id, {
       session_id,
       tab_id: session.tab_id,
       step: { kind: "js", source } as unknown as { kind: "tool"; tool: string; args: unknown }
@@ -89,12 +131,12 @@ export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Re
 
   const override = NON_BUILTIN_CAPABILITY[gen.builtinTool];
   if (override) {
-    const v = deps.coordinator.validateCall({ session_id, kind: "capability", capability: override });
+    const v = coordinator.validateCall({ session_id, kind: "capability", capability: override });
     if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);
-    deps.coordinator.recordCall(session_id, v.dangerous);
+    coordinator.recordCall(session_id, v.dangerous);
   } else {
     const raw = toolArgs as Record<string, unknown>;
-    const v = deps.coordinator.validateCall({
+    const v = coordinator.validateCall({
       session_id,
       kind: "extension_tool",
       tool,
@@ -103,10 +145,10 @@ export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Re
       recorderArmsBodies: tool === "recorderConfig" ? raw.bodies === true : undefined
     });
     if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);
-    deps.coordinator.recordCall(session_id, v.dangerous);
+    coordinator.recordCall(session_id, v.dangerous);
   }
 
-  const result = await deps.hub.exec(session.worker_id, { session_id, tab_id: session.tab_id, step: { kind: "tool", tool, args: toolArgs as Json } });
+  const result = await hub.exec(session.worker_id, { session_id, tab_id: session.tab_id, step: { kind: "tool", tool, args: toolArgs as Json } });
   if (!result.ok) throw new Error(result.error ? `${result.error.code}: ${result.error.message}` : "EXEC failed");
   return (result.return ?? null) as Json;
 }
