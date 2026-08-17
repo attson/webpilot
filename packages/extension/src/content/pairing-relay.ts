@@ -1,5 +1,6 @@
 import {
   PAIR_PAGE_SOURCE,
+  PAIR_READY_SOURCE,
   PAIR_RESULT_SOURCE,
   type PairPayload,
   type PairingDecision
@@ -32,6 +33,11 @@ export function installPairingRelay(): void {
 
     void handle(payload);
   });
+
+  // The page's inline script runs while the document is parsing; this content
+  // script runs at document_idle. Whoever speaks first would otherwise be
+  // talking to nobody, so the relay announces itself and the page answers.
+  window.postMessage({ source: PAIR_READY_SOURCE }, "*");
 }
 
 async function handle(payload: PairPayload): Promise<void> {

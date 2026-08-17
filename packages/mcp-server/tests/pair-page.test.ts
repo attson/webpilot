@@ -44,3 +44,27 @@ describe("renderPairPage", () => {
     expect(renderPairPage(payload)).toContain("扩展");
   });
 });
+
+describe("renderPairPage — install ordering", () => {
+  const html = renderPairPage(payload);
+
+  it("answers the relay's ready announcement", () => {
+    expect(html).toContain("atwebpilot-pair-ready");
+  });
+
+  it("keeps announcing rather than posting once", () => {
+    // The page's inline script runs while parsing; the relay installs at
+    // document_idle. A single post would be heard by nobody.
+    expect(html).toContain("setInterval");
+    expect(html).toContain("announce");
+  });
+
+  it("gives up eventually and says why", () => {
+    expect(html).toContain("clearInterval");
+    expect(html).toContain("没有联系上扩展");
+  });
+
+  it("stops announcing once a result arrives", () => {
+    expect(html).toContain("done = true");
+  });
+});

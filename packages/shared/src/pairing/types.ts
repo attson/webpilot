@@ -40,5 +40,14 @@ export const GRACEFUL_CLOSE_REASON = "server-shutting-down";
 /** Runtime-message types between the content-script relay and the worker. */
 export const PAIR_PAGE_SOURCE = "atwebpilot-pair";
 export const PAIR_RESULT_SOURCE = "atwebpilot-pair-result";
+/**
+ * Broadcast by the relay as soon as it installs.
+ *
+ * The pairing page's inline script runs while the document is parsing, but the
+ * content script hosting the relay runs at document_idle — so a page that
+ * announces itself once is talking to nobody. The relay says hello instead,
+ * and the page answers.
+ */
+export const PAIR_READY_SOURCE = "atwebpilot-pair-ready";
 
 export type PairingDecision = "trusted" | "ask";

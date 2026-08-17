@@ -21,9 +21,19 @@ export function renderPairPage(payload: PairPayload): string {
 <script>
 (function () {
   var payload = ${json};
-  window.postMessage({ source: "atwebpilot-pair", payload: payload }, "*");
+  var done = false;
+
+  function announce() {
+    if (!done) window.postMessage({ source: "atwebpilot-pair", payload: payload }, "*");
+  }
+
   window.addEventListener("message", function (e) {
-    if (!e.data || e.data.source !== "atwebpilot-pair-result") return;
+    if (!e.data) return;
+    // The extension's relay installs at document_idle, i.e. after this script
+    // has already run. It says hello when it is ready; that is our cue.
+    if (e.data.source === "atwebpilot-pair-ready") { announce(); return; }
+    if (e.data.source !== "atwebpilot-pair-result") return;
+    done = true;
     var el = document.getElementById("atwebpilot-status");
     if (e.data.ok) {
       el.textContent = e.data.trusted ? "已信任，连接中…" : "已连接";
@@ -32,6 +42,22 @@ export function renderPairPage(payload: PairPayload): string {
       el.textContent = "已拒绝。可以关闭本页。";
     }
   });
+
+  // Belt and braces: announce now in case the relay was already listening, and
+  // keep announcing for a while in case the ready signal itself was missed.
+  announce();
+  var tries = 0;
+  var timer = setInterval(function () {
+    if (done || ++tries > 40) {
+      clearInterval(timer);
+      if (!done) {
+        document.getElementById("atwebpilot-status").textContent =
+          "没有联系上扩展。请确认这个浏览器已安装并启用 AtWebPilot 扩展，然后刷新本页。";
+      }
+      return;
+    }
+    announce();
+  }, 500);
 })();
 </script>
 `;

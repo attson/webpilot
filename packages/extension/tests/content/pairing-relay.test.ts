@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installPairingRelay } from "@/content/pairing-relay";
-import { PAIR_PAGE_SOURCE, PAIR_RESULT_SOURCE } from "@atwebpilot/shared/pairing";
+import {
+  PAIR_PAGE_SOURCE,
+  PAIR_READY_SOURCE,
+  PAIR_RESULT_SOURCE
+} from "@atwebpilot/shared/pairing";
 
 const realChrome = globalThis.chrome;
 
@@ -132,5 +136,31 @@ describe("pairing relay", () => {
     pairMessage();
     await settle();
     expect(results()[0]).toMatchObject({ ok: false });
+  });
+});
+
+describe("pairing relay — install ordering", () => {
+  // The page's inline script runs during parsing; the content script hosting
+  // this relay runs at document_idle. A page that posts once, before the relay
+  // exists, would otherwise wait forever.
+  it("announces readiness when it installs", async () => {
+    const seen: Array<Record<string, unknown>> = [];
+    const listener = (ev: MessageEvent) => {
+      const d = ev.data as Record<string, unknown>;
+      if (d && d.source === PAIR_READY_SOURCE) seen.push(d);
+    };
+    window.addEventListener("message", listener);
+    installPairingRelay();
+    await settle();
+    window.removeEventListener("message", listener);
+    expect(seen.length).toBeGreaterThan(0);
+  });
+
+  it("handles a request that arrives after the announcement", async () => {
+    installPairingRelay();
+    await settle();
+    pairMessage();
+    await settle();
+    expect(sent.some((m) => (m as { type?: string }).type === "pairing.request")).toBe(true);
   });
 });
