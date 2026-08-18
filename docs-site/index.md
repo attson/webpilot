@@ -4,9 +4,6 @@ hero:
   name: AtWebPilot
   text: AI 网页助手
   tagline: 在当前 tab 上读、写、采 —— 像常规 chatbot 一样对话，AI 自动调工具
-  image:
-    src: /mockups/sidepanel-hero-landscape.svg
-    alt: AtWebPilot 侧边面板嵌入浏览器
   actions:
     - theme: brand
       text: 下载最新版本
@@ -31,29 +28,6 @@ features:
     title: 固化
     details: 任意成功对话一键存成 URL 模式匹配的可重放工具；下次访问一键跑
 ---
-
-## 现在就看它跑
-
-<p class="demo-lead">
-下面是**真的侧边栏**在**真的 DOM** 上工作 —— 页面、工具调用、审批都是产品自己的代码，
-不是录屏。左边那个商品页是预置的，所以不用装扩展也不用 API Key。
-</p>
-
-<ClientOnly>
-  <div class="home-demo">
-    <iframe
-      src="/atwebpilot/demo/index.html"
-      title="AtWebPilot 交互演示"
-      loading="lazy"
-      referrerpolicy="no-referrer"
-    ></iframe>
-  </div>
-</ClientOnly>
-
-<p class="demo-foot">
-演示只能操作这一个预置页面。装上扩展后可以在任意网站上工作 ——
-<a href="/guide/install">安装</a> · <a href="/guide/first-task">第一条任务</a>
-</p>
 
 <div class="showcase">
 
