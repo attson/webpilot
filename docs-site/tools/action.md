@@ -16,6 +16,9 @@
 |---|---|---|---|
 | `selector` | string |  | 是 |
 | `required` | boolean |  | 否 |
+| `doubleClick` | boolean |  | 否 |
+| `button` | string |  | 否 |
+| `modifiers` | array |  | 否 |
 | `tabId` | integer | 目标 tab。要操作主会话 tab 时整个字段不要带（不要 0 / null）；要操作其它 tab 时它必须先在 attachedTabs（用 attachTab 申请） | 否 |
 
 ---
@@ -36,6 +39,8 @@
 | `selector` | string |  | 是 |
 | `value` | string |  | 是 |
 | `clear` | boolean |  | 否 |
+| `slowly` | boolean | 逐字符触发 keydown/keypress/input/keyup，对付受控组件 | 否 |
+| `submit` | boolean | 填完按一次 Enter | 否 |
 | `tabId` | integer | 目标 tab。要操作主会话 tab 时整个字段不要带（不要 0 / null）；要操作其它 tab 时它必须先在 attachedTabs（用 attachTab 申请） | 否 |
 
 ---

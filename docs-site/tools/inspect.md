@@ -66,7 +66,8 @@ snapshotDOM 更适合「我要分析整个页面结构」这种探查类需求�
 
 ## `extractText`  🟢 safe
 
-[FAST] 提取选择器命中元素的文本。single=true 返回字符串，否则返回数组。
+[FAST·TARGETED] 提取选择器命中元素的文本。single=true 返回字符串，否则返回数组。
+只用于明确的小范围 selector；普通网页理解/字段提取不要用 extractText({selector:'body'})，先用 createPageIndex + extractPageFields/searchPageIndex。
 
 示例：
 - 提取标题：{ selector: 'h1', single: true }
@@ -137,6 +138,8 @@ snapshotDOM 更适合「我要分析整个页面结构」这种探查类需求�
 | `ms` | integer |  | 否 |
 | `selector` | string |  | 否 |
 | `timeoutMs` | integer |  | 否 |
+| `text` | string | 等待页面出现该文本 | 否 |
+| `textGone` | string | 等待该文本消失 | 否 |
 | `tabId` | integer | 目标 tab。要操作主会话 tab 时整个字段不要带（不要 0 / null）；要操作其它 tab 时它必须先在 attachedTabs（用 attachTab 申请） | 否 |
 
 ---

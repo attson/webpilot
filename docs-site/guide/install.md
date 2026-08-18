@@ -16,9 +16,10 @@
 claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 ```
 
-再照方式 1 装扩展。扩展设置里 Coordinator 页填 `ws://127.0.0.1:8787/worker` → 连接。
+再照方式 1 装扩展。**不需要手填端口** —— AI 第一次要操作网页时会自动弹出配对页，
+点「允许」即接入；之后本机的会话都免确认，多个 Claude Code 会话也可以同时接入同一个浏览器。
 
-详见 [MCP Bridge](/advanced/mcp-bridge)。
+详见 [MCP Bridge](/advanced/mcp-bridge) 与 [多会话配对](/advanced/pairing)。
 
 ## 方式 3：自己 build
 

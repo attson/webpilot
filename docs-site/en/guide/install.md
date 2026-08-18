@@ -16,7 +16,9 @@ Three ways to use it.
 claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 ```
 
-Then install the extension as in Option 1. In extension Settings → Coordinator, enter `ws://127.0.0.1:8787/worker` and connect.
+Then install the extension as in Option 1. **No port to fill in** — the first time the AI
+needs to touch a page, a pairing page opens; click Allow and it connects. Later sessions on
+the same machine connect silently, and several Claude Code sessions can share one browser.
 
 See [MCP Bridge](/en/advanced/mcp-bridge).
 
