@@ -148,7 +148,7 @@ export function AppShell() {
   // Pending approval focus: when sidepanel opens after dangerous-tool handoff,
   // scroll to and briefly highlight the awaiting step card.
   useEffect(() => {
-    const KEY = "caiji.pendingApproval";
+    const KEY = "atwebpilot.pendingApproval";
     void chrome.storage.session.get([KEY]).then(async (res) => {
       const p = (res as Record<string, unknown>)[KEY] as
         | { tabId: number; approvalId: string; ts: number }
@@ -170,9 +170,9 @@ export function AppShell() {
   }, []);
 
   // Widget 通过 widget.openSidepanelWithSave 唤起本面板时,BG 会在 chrome.storage.session
-  // 存 caiji.pendingSave;这里读到就调 showSave(tabId) 弹保存对话框。
+  // 存 atwebpilot.pendingSave;这里读到就调 showSave(tabId) 弹保存对话框。
   useEffect(() => {
-    const KEY = "caiji.pendingSave";
+    const KEY = "atwebpilot.pendingSave";
     void chrome.storage.session.get([KEY]).then(async (res) => {
       const p = (res as any)[KEY] as { tabId: number; ts: number } | undefined;
       if (!p) return;

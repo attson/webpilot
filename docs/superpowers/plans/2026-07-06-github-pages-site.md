@@ -364,7 +364,7 @@ Expected: 中文首页与英文首页都返回 HTML；stderr 无 error。
 - [ ] **Step 6: 提交**
 
 ```bash
-cd /Users/attson/code/caiji2
+cd /Users/attson/code/atwebpilot2
 git add docs-site/ .gitignore
 git commit -m "$(cat <<'EOF'
 docs(site): bootstrap VitePress + 中英文首页

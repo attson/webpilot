@@ -13,7 +13,7 @@ const payload = {
   installId: "inst_abc",
   secret: "s3cr3t",
   sessionId: "sess_1",
-  label: "~/code/caiji2",
+  label: "~/code/atwebpilot2",
   pid: 1234,
   port: 51234
 };

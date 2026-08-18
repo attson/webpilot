@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **IDB DB name = `caiji`**(不可改;老用户 tool 全靠这个名字)
+- **IDB DB name = `atwebpilot`**(不可改;老用户 tool 全靠这个名字)
 - **No new dependencies**(AGENTS.md hard rule)
 - **API key 只在 sidepanel**(chrome.storage.local/session);BG 侧一律不持 key
 - **Coordinator EXEC 路径首版不自愈**(`allowHeal: false` 显式传)
@@ -2370,7 +2370,7 @@ async function readLlmSettings(): Promise<{
   maxSelfHealOutputTokens: number;
   apiKey: string;
 }> {
-  const KEY = "caiji.llm";
+  const KEY = "atwebpilot.llm";
   const raw = (await chrome.storage.local.get([KEY]))[KEY] ?? {};
   const session = (await chrome.storage.session.get([KEY]))[KEY] ?? {};
   const apiKey = raw.apiKey || session.apiKey || "";

@@ -15,7 +15,7 @@ export async function exportAll(): Promise<ExportBundle> {
   const tools = allTools.filter(
     (t) => !(t.origin?.kind === "preset" && t.versions.length === 1)
   );
-  return { schema: "caiji.tools/v2", exportedAt: Date.now(), tools };
+  return { schema: "atwebpilot.tools/v2", exportedAt: Date.now(), tools };
 }
 
 export type ConflictPolicy = "skip" | "overwrite" | "copy";
@@ -29,7 +29,7 @@ export async function importBundle(
   raw: ExportBundle,
   opts: { onConflict: ConflictPolicy }
 ): Promise<ImportResult> {
-  if (!raw || raw.schema !== "caiji.tools/v2" || !Array.isArray(raw.tools)) {
+  if (!raw || raw.schema !== "atwebpilot.tools/v2" || !Array.isArray(raw.tools)) {
     throw new Error("invalid bundle: schema mismatch");
   }
   // Gap Fix T8.5: strip origin when the referenced preset id is not in current PRESETS

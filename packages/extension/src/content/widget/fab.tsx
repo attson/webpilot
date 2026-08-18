@@ -110,7 +110,7 @@ export function FAB({ onToggle, active }: Props) {
           <button
             className="block w-full text-left px-3 py-2 hover:bg-zinc-800 text-amber-400"
             onClick={async () => {
-              await hideHost(location.host);
+              await hideHost(location.hostname);
               unmountWidget();
             }}
           >

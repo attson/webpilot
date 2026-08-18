@@ -219,12 +219,6 @@ export function SectionLlm() {
         <span className="text-zinc-300">自动自愈失败 step（默认开）</span>
       </label>
       <label className="flex items-center gap-2">
-        <input type="checkbox"
-          checked={settings.widgetEnabled !== false}
-          onChange={(e) => void settings.save({ widgetEnabled: e.target.checked })}/>
-        启用页内浮窗(每页右下角对话入口,默认开)
-      </label>
-      <label className="flex items-center gap-2">
         <span className="text-zinc-400">自愈 LLM 输出上限</span>
         <input
           type="number"

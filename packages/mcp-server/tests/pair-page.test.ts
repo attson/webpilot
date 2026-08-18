@@ -7,7 +7,7 @@ const payload: PairPayload = {
   installId: "inst_abc",
   secret: "s3cr3t",
   sessionId: "sess_1",
-  label: "~/code/caiji2",
+  label: "~/code/atwebpilot2",
   pid: 1234,
   port: 51234
 };
@@ -23,7 +23,7 @@ describe("renderPairPage", () => {
 
   it("shows the session label, pid and port to the user", () => {
     const html = renderPairPage(payload);
-    expect(html).toContain("~/code/caiji2");
+    expect(html).toContain("~/code/atwebpilot2");
     expect(html).toContain("pid 1234");
   });
 

@@ -8,8 +8,8 @@
  * never interferes with page layout / event handling.
  */
 
-const HEARTBEAT_KEY = "caiji.heartbeat";
-const SETTING_KEY = "caiji.llm";
+const HEARTBEAT_KEY = "atwebpilot.heartbeat";
+const SETTING_KEY = "atwebpilot.llm";
 const CLASS = "atwebpilot-breathing";
 const STYLE_ID = "atwebpilot-breathing-style";
 

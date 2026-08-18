@@ -122,8 +122,8 @@ export type LlmSettings = {
 import { create } from "zustand";
 import type { LlmSettings } from "@atwebpilot/shared/types";
 
-const KEY = "caiji.llm";
-const MIGRATION_KEY = "caiji.llm._migrated_v1";
+const KEY = "atwebpilot.llm";
+const MIGRATION_KEY = "atwebpilot.llm._migrated_v1";
 
 const DEFAULTS: LlmSettings = {
   provider: "anthropic",
@@ -223,18 +223,18 @@ describe("settings-store migration", () => {
 
   it("migrates autoApproveDangerous → trustedDangerTools on first load", async () => {
     const { local } = makeStorage();
-    local["caiji.llm"] = { autoApproveDangerous: ["submitForm", "uploadFile"] };
+    local["atwebpilot.llm"] = { autoApproveDangerous: ["submitForm", "uploadFile"] };
     const { useSettings } = await import("../settings-store");
     await useSettings.getState().load();
     expect(useSettings.getState().trustedDangerTools).toEqual(["submitForm", "uploadFile"]);
-    expect((local["caiji.llm"] as Record<string, unknown>).autoApproveDangerous).toBeUndefined();
-    expect(local["caiji.llm._migrated_v1"]).toBe(true);
+    expect((local["atwebpilot.llm"] as Record<string, unknown>).autoApproveDangerous).toBeUndefined();
+    expect(local["atwebpilot.llm._migrated_v1"]).toBe(true);
   });
 
   it("does not re-migrate when migration flag set", async () => {
     const { local } = makeStorage();
-    local["caiji.llm"] = { trustedDangerTools: ["submitForm"], autoApproveDangerous: ["uploadFile"] };
-    local["caiji.llm._migrated_v1"] = true;
+    local["atwebpilot.llm"] = { trustedDangerTools: ["submitForm"], autoApproveDangerous: ["uploadFile"] };
+    local["atwebpilot.llm._migrated_v1"] = true;
     const { useSettings } = await import("../settings-store");
     await useSettings.getState().load();
     expect(useSettings.getState().trustedDangerTools).toEqual(["submitForm"]);

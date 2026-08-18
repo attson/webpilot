@@ -74,7 +74,7 @@
 从单包改为 pnpm workspaces：
 
 ```
-caiji2/
+atwebpilot2/
 ├─ packages/
 │  ├─ shared/                    ← 三方共享，纯函数 + 类型
 │  │  ├─ src/

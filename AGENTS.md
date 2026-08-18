@@ -34,7 +34,7 @@ Three personas of work the user expects help with:
 ## Repo layout
 
 ```
-caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
+atwebpilot2/                              # pnpm workspaces monorepo（Phase 0 起）
 ├─ packages/
 │  ├─ shared/                         纯函数 + 类型 + zod wire schemas（无 chrome / 无 DOM 依赖）
 │  │  └─ src/
@@ -70,7 +70,7 @@ caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
 │     │  │  ├─ bg-tool-runner.ts      ToolRunner 接口的 background 实现（直接调 runOneStep）
 │     │  │  ├─ self-heal.ts           Plan 27：`attemptHeal(ctx, deps)` 纯函数 + DI；zod parse patched Step[] + static-scan gate（严格拒 dangerous）
 │     │  │  ├─ self-heal-bridge.ts    Plan 27：BG → sidepanel 借 LLM 的 chrome.runtime.sendMessage 包装（30s timeout → `no_sidepanel`）
-│     │  │  └─ storage/{db,tools,runs,export-import,sessions}.ts   IndexedDB (DB_NAME = "caiji" — do NOT rename)；`runs` 表 record 有 `source: "user" | "coordinator"` 与可选 `healed?: {fromVersion,toVersion,fixedStepIndex}`；`tools` 表带可选 `origin?: {kind:"preset", presetId, presetVersion}`；`materializePreset(id)` 幂等复制 preset 到 IDB；`exportTools()` 跳过未修改的 preset 副本；`importTools()` 剥掉未知 preset origin
+│     │  │  └─ storage/{db,tools,runs,export-import,sessions}.ts   IndexedDB (DB_NAME = "atwebpilot" — do NOT rename)；`runs` 表 record 有 `source: "user" | "coordinator"` 与可选 `healed?: {fromVersion,toVersion,fixedStepIndex}`；`tools` 表带可选 `origin?: {kind:"preset", presetId, presetVersion}`；`materializePreset(id)` 幂等复制 preset 到 IDB；`exportTools()` 跳过未修改的 preset 副本；`importTools()` 剥掉未知 preset origin
 │     │  ├─ content/                  Content script (isolated world)
 │     │  │  ├─ index.ts               chrome.runtime.onMessage → callTool / injectMain
 │     │  │  ├─ element-capture.ts     页面元素圈选：hover 高亮 + click 产 selector，供 sidepanel/widget 作为附件式引用
@@ -162,7 +162,7 @@ Skip this only for: bug fixes, typo / doc edits, the user explicitly asks
 
 ## Hard rules
 
-- **IDB DB name is `caiji`** in `packages/extension/src/background/storage/db.ts`. Do not rename
+- **IDB DB name is `atwebpilot`** in `packages/extension/src/background/storage/db.ts`. Do not rename
   it (would orphan every existing user's saved tools). Internal name and
   product name (AtWebPilot) are intentionally decoupled.
 - **No new dependencies without asking.** Existing stack covers everything
@@ -492,7 +492,7 @@ Read `docs/superpowers/specs/README.md` for the full spec index (Plan 1-30). At 
 - Adding business logic to a component (move to `chat/` or shared/`)
 - Treating `runJS` errors as `output: null` (BG now wraps + re-throws —
   don't undo)
-- Renaming `caiji` → `atwebpilot` anywhere user data lives (IDB / import
+- Renaming `atwebpilot` → `atwebpilot` anywhere user data lives (IDB / import
   alias `@/`)
 - Touching `.idea/` or other IDE configs in commits
 - Hard-coding `chrome.*` access in `runChatSession` or anything below

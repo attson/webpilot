@@ -52,7 +52,7 @@ content/
 
 ### 3.1 形态
 - Settings drawer → LLM section 上方新增一个 「外观」section：3 个 radio: `light / dark / system`，默认 `dark`
-- 持久化到 `chrome.storage.local: caiji.theme`
+- 持久化到 `chrome.storage.local: atwebpilot.theme`
 - 整体 sidepanel 容器加 `data-theme="light|dark"`，所有色用 CSS 变量
 
 ### 3.2 Token 切换
@@ -104,7 +104,7 @@ function getResolved(t: Theme): "light" | "dark" {
 
 ### 4.1 Update banner
 - `shell/update-banner.tsx`：sidepanel boot 后 fetch `https://api.github.com/repos/attson/atwebpilot/releases/latest`，取 `tag_name`，跟本地 `package.json.version`（通过 vite define 注入 `__APP_VERSION__`）比对。
-- 高于当前 → 在 header 下出一条横条：`有新版本 v0.0.28（当前 v0.0.27）[查看 release]`。点关闭后写 `chrome.storage.local: caiji.dismissed_update = "v0.0.28"`，同 tag 不再提醒。
+- 高于当前 → 在 header 下出一条横条：`有新版本 v0.0.28（当前 v0.0.27）[查看 release]`。点关闭后写 `chrome.storage.local: atwebpilot.dismissed_update = "v0.0.28"`，同 tag 不再提醒。
 - 失败 / 离线 / rate limit → 静默。
 - 24h 缓存 in storage，避免每次开 sidepanel 都打 API。
 
@@ -145,7 +145,7 @@ Tab 切换 Tabs ↔ Tools；↑↓ 在当前列表内动；Enter 选中。
 
 ### 6.2 流程
 1. 用户右键 → 选项
-2. background.ts 把 prompt 写 `chrome.storage.local: caiji.pending_prompt = {text, ts, sourceUrl}`
+2. background.ts 把 prompt 写 `chrome.storage.local: atwebpilot.pending_prompt = {text, ts, sourceUrl}`
 3. background.ts 调 `chrome.sidePanel.open({tabId})` 唤起当前 tab 的 sidepanel
 4. sidepanel boot 时 `usePendingPrompt()` hook 读取（5s TTL，过期忽略），写到 input、自动发送（或仅填充等用户回车——配置项）
 5. 读完即删
@@ -166,24 +166,24 @@ Settings → Mounting section 加：「右键菜单」开关，默认 on。off �
 ## 7 · S6 · Conversation 心跳 + 页面 breathing border
 
 ### 7.1 心跳 writer
-- `chat/heartbeat.ts`：每 2s 写 `chrome.storage.local: caiji.active = {ts, tabId, sessionStatus}`
+- `chat/heartbeat.ts`：每 2s 写 `chrome.storage.local: atwebpilot.active = {ts, tabId, sessionStatus}`
 - 由 AppShell 监听 `session.status`，进 `streaming/awaiting/running` 时 start，进 `idle/done/error/aborted` 时 stop（清掉 key）
 - 关 sidepanel = visibilitychange hidden → 也清掉
 
 ### 7.2 Content script overlay
 新建 `content/breathing-border.ts`，每 tab 注入（已经在 manifest content_scripts 里跑）：
-- listen `chrome.storage.onChanged` 监 `caiji.active`
-- 当 `caiji.active.tabId === currentTabId` 时给 `document.body` 加 class `caiji-breathing`
+- listen `chrome.storage.onChanged` 监 `atwebpilot.active`
+- 当 `atwebpilot.active.tabId === currentTabId` 时给 `document.body` 加 class `atwebpilot-breathing`
 - 用 `<style>` 注入：
 ```css
-body.caiji-breathing::after {
+body.atwebpilot-breathing::after {
   content: ""; position: fixed; inset: 0;
   pointer-events: none; z-index: 2147483647;
   border: 3px solid transparent;
   border-image: linear-gradient(90deg, #10b981, #3b82f6) 1;
-  animation: caiji-breath 1.4s ease-in-out infinite;
+  animation: atwebpilot-breath 1.4s ease-in-out infinite;
 }
-@keyframes caiji-breath {
+@keyframes atwebpilot-breath {
   0%, 100% { opacity: 0.3 }
   50% { opacity: 0.85 }
 }

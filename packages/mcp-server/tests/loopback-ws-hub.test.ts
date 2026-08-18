@@ -234,7 +234,7 @@ describe("Plan 33 — pairing page and lifecycle", () => {
     installId: "inst_abc",
     secret: "s",
     sessionId: "sess_1",
-    label: "~/code/caiji2",
+    label: "~/code/atwebpilot2",
     pid: 1,
     port: 0
   };

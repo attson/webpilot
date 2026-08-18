@@ -507,7 +507,7 @@ tests/sidepanel/chat/
 8. 全量回归（149 tests + 手测三个场景）
 
 **不影响**：
-- IDB DB_NAME（仍 `caiji`）
+- IDB DB_NAME（仍 `atwebpilot`）
 - run-session.ts 公共接口
 - LLM 适配 / 工具集 / system prompt
 - 设置页 / 工具库 / 工具详情页

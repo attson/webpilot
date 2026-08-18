@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **IDB DB name `caiji`** — 不可改
+- **IDB DB name `atwebpilot`** — 不可改
 - **No new dependencies**(AGENTS.md hard rule)
 - **API key 只在 sidepanel/widget 扩展代码域**;host page 脚本不可读
 - **Shadow DOM `mode:"open"`**(便于调试;安全依赖扩展代码域隔离,不依赖 closed)
@@ -248,16 +248,16 @@ describe("widget RPCs", () => {
     await dispatch({ type: "widget.openSidepanel", tabId: 42, pendingApprovalId: "abc" } as any);
     expect(chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 42 });
     expect(chrome.storage.session.set).toHaveBeenCalledWith(
-      expect.objectContaining({ "caiji.pendingApproval": expect.objectContaining({ tabId: 42, approvalId: "abc" }) })
+      expect.objectContaining({ "atwebpilot.pendingApproval": expect.objectContaining({ tabId: 42, approvalId: "abc" }) })
     );
   });
 
   it("widget.markHostHidden appends host to hiddenHosts list", async () => {
-    (chrome.storage.local.get as any).mockResolvedValueOnce({ "caiji.widget.hiddenHosts": ["foo.com"] });
+    (chrome.storage.local.get as any).mockResolvedValueOnce({ "atwebpilot.widget.hiddenHosts": ["foo.com"] });
     const { dispatch } = await import("@/background/rpc-handlers");
     await dispatch({ type: "widget.markHostHidden", host: "bar.com" } as any);
     expect(chrome.storage.local.set).toHaveBeenCalledWith(
-      expect.objectContaining({ "caiji.widget.hiddenHosts": ["foo.com", "bar.com"] })
+      expect.objectContaining({ "atwebpilot.widget.hiddenHosts": ["foo.com", "bar.com"] })
     );
   });
 });
@@ -295,7 +295,7 @@ In `packages/extension/src/background/rpc-handlers.ts` `dispatch` switch, add tw
       await chrome.sidePanel.open({ tabId: req.tabId });
       if (req.pendingApprovalId) {
         await chrome.storage.session.set({
-          "caiji.pendingApproval": {
+          "atwebpilot.pendingApproval": {
             tabId: req.tabId,
             approvalId: req.pendingApprovalId,
             ts: Date.now()
@@ -305,7 +305,7 @@ In `packages/extension/src/background/rpc-handlers.ts` `dispatch` switch, add tw
       return null;
     }
     case "widget.markHostHidden": {
-      const KEY = "caiji.widget.hiddenHosts";
+      const KEY = "atwebpilot.widget.hiddenHosts";
       const raw = (await chrome.storage.local.get([KEY]))[KEY];
       const list = Array.isArray(raw) ? [...raw] : [];
       if (!list.includes(req.host)) list.push(req.host);
@@ -768,9 +768,9 @@ Expected: module not found.
 
 ```ts
 // packages/extension/src/content/widget/per-site.ts
-const HIDDEN_KEY = "caiji.widget.hiddenHosts";
-const FAB_KEY = "caiji.widget.fabPos";
-const SIZE_KEY = "caiji.widget.panelSize";
+const HIDDEN_KEY = "atwebpilot.widget.hiddenHosts";
+const FAB_KEY = "atwebpilot.widget.fabPos";
+const SIZE_KEY = "atwebpilot.widget.panelSize";
 const DEFAULT_SIZE = { w: 320, h: 480 };
 
 export async function getHiddenHosts(): Promise<string[]> {
@@ -848,7 +848,7 @@ git commit -m "feat(widget): per-site storage helper — hiddenHosts / fabPos / 
 // packages/extension/tests/content/widget/mount.test.ts
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const storage: Record<string, any> = { "caiji.llm": { widgetEnabled: true } };
+const storage: Record<string, any> = { "atwebpilot.llm": { widgetEnabled: true } };
 (globalThis as any).chrome = {
   storage: {
     local: {
@@ -861,8 +861,8 @@ const storage: Record<string, any> = { "caiji.llm": { widgetEnabled: true } };
 describe("mountWidget", () => {
   beforeEach(() => {
     document.documentElement.innerHTML = "<head></head><body></body>";
-    for (const k of Object.keys(storage)) if (k !== "caiji.llm") delete storage[k];
-    storage["caiji.llm"] = { widgetEnabled: true };
+    for (const k of Object.keys(storage)) if (k !== "atwebpilot.llm") delete storage[k];
+    storage["atwebpilot.llm"] = { widgetEnabled: true };
     vi.clearAllMocks();
   });
 
@@ -875,14 +875,14 @@ describe("mountWidget", () => {
   });
 
   it("does NOT mount when widgetEnabled=false", async () => {
-    storage["caiji.llm"] = { widgetEnabled: false };
+    storage["atwebpilot.llm"] = { widgetEnabled: false };
     const { mountWidget } = await import("@/content/widget/mount");
     await mountWidget();
     expect(document.querySelector("atwebpilot-widget")).toBeNull();
   });
 
   it("does NOT mount when host is in hiddenHosts", async () => {
-    storage["caiji.widget.hiddenHosts"] = [location.host];
+    storage["atwebpilot.widget.hiddenHosts"] = [location.host];
     const { mountWidget } = await import("@/content/widget/mount");
     await mountWidget();
     expect(document.querySelector("atwebpilot-widget")).toBeNull();
@@ -911,7 +911,7 @@ Expected: module not found.
 import { isHostHidden } from "./per-site";
 
 const HOST_TAG = "atwebpilot-widget";
-const SETTINGS_KEY = "caiji.llm";
+const SETTINGS_KEY = "atwebpilot.llm";
 
 export async function mountWidget(): Promise<void> {
   // Idempotent
@@ -1648,7 +1648,7 @@ git commit -m "feat(widget): runFromInput — 复用 runChatSession + LlmClient"
 **Files:**
 - Create: `packages/extension/src/content/widget/handoff.ts` — 封装 `widget.openSidepanel` 调用
 - Modify: `packages/extension/src/content/widget/run-widget-session.ts` — wrap approver;dangerous → handoff
-- Modify: `packages/extension/src/sidepanel/shell/app-shell.tsx` — `useEffect` 读 `caiji.pendingApproval` + scroll 到该 step-card + 高亮
+- Modify: `packages/extension/src/sidepanel/shell/app-shell.tsx` — `useEffect` 读 `atwebpilot.pendingApproval` + scroll 到该 step-card + 高亮
 
 **Interfaces:**
 - Produces:
@@ -1700,7 +1700,7 @@ In `packages/extension/src/sidepanel/shell/app-shell.tsx`, add a `useEffect(() =
 
 ```tsx
 useEffect(() => {
-  const KEY = "caiji.pendingApproval";
+  const KEY = "atwebpilot.pendingApproval";
   void chrome.storage.session.get([KEY]).then(async (res) => {
     const p = (res as any)[KEY] as { tabId: number; approvalId: string; ts: number } | undefined;
     if (!p) return;

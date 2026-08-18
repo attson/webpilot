@@ -48,7 +48,7 @@
 - [ ] **Step 1: 切分支**
 
 ```bash
-cd /Users/attson/code/caiji2
+cd /Users/attson/code/atwebpilot2
 git checkout main
 git pull --ff-only
 git status   # MUST be clean

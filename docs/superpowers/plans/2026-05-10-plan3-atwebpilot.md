@@ -13,7 +13,7 @@
 ## 文件结构（Plan 3 增量）
 
 ```
-caiji2/                                  ← 仓库目录暂不动
+atwebpilot2/                                  ← 仓库目录暂不动
 ├─ package.json                          # MOD: name → atwebpilot, description
 ├─ README.md                             # MOD: 全篇重写为"网页助手"
 ├─ src/
@@ -2295,22 +2295,22 @@ export default defineManifest({
 
 - [ ] **Step 3: `src/sidepanel/index.html`**
 
-把 `<title>Caiji2</title>` 改成 `<title>AtWebPilot</title>`。
+把 `<title>atwebpilot2</title>` 改成 `<title>AtWebPilot</title>`。
 
 - [ ] **Step 4: console 前缀替换**
 
 `src/background/index.ts` 中：
 
 ```ts
-console.info("[caiji2] service worker installed");
+console.info("[atwebpilot2] service worker installed");
 ```
 
-改 `[atwebpilot]`。同样改 `console.error("[caiji2] sidePanel ...")`。
+改 `[atwebpilot]`。同样改 `console.error("[atwebpilot2] sidePanel ...")`。
 
 `src/content/index.ts` 中：
 
 ```ts
-console.info("[caiji2] content script loaded on", location.href);
+console.info("[atwebpilot2] content script loaded on", location.href);
 ```
 
 改 `[atwebpilot]`。
@@ -2318,15 +2318,15 @@ console.info("[caiji2] content script loaded on", location.href);
 `src/background/tab-watcher.ts` 中：
 
 ```ts
-console.warn("[caiji2] content script inject failed", e);
+console.warn("[atwebpilot2] content script inject failed", e);
 ```
 
 改 `[atwebpilot]`（如果有）。
 
 也 grep 一遍：
 
-Run: `grep -rn "caiji2" src/` 
-确认所有 `[caiji2]` 都改成 `[atwebpilot]`。允许残留的：`@/...` 别名（与 `caiji2` 无关）、`.gitignore`（无关）、`docs/superpowers/` 下的 spec 引用（历史文档，保留）。
+Run: `grep -rn "atwebpilot2" src/`
+确认所有 `[atwebpilot2]` 都改成 `[atwebpilot]`。允许残留的：`@/...` 别名（与 `atwebpilot2` 无关）、`.gitignore`（无关）、`docs/superpowers/` 下的 spec 引用（历史文档，保留）。
 
 - [ ] **Step 5: chat-page placeholder**
 
@@ -2389,7 +2389,7 @@ Expected: 退出码 0；`dist/manifest.json` `name` 字段是 `AtWebPilot — AI
 
 ```bash
 git add package.json src/manifest.ts src/sidepanel/index.html src/background/index.ts src/content/index.ts src/sidepanel/pages/chat-page.tsx src/sidepanel/components/chat-view.tsx src/background/tab-watcher.ts
-git commit -m "chore: rename Caiji2 → AtWebPilot in user-facing strings"
+git commit -m "chore: rename atwebpilot2 → AtWebPilot in user-facing strings"
 ```
 
 ---
@@ -2558,6 +2558,6 @@ echo "Plan 3 complete"
 - [ ] 对话页底部有 ⚠ dangerous 自动 popover，与设置页双向同步
 - [ ] 总结 / 填表 / 采集三个手测脚本都跑通
 - [ ] 保存为工具仍只在用户点按钮时弹出（保留 Plan 2 的修正）
-- [ ] 既有用户的 IDB 工具不丢（DB_NAME 仍是 "caiji"）
+- [ ] 既有用户的 IDB 工具不丢（DB_NAME 仍是 "atwebpilot"）
 
 完成后即可启动 Plan 4 候选（动态 host_permissions / 多模态截屏 / navigate / e2e 自动化）。

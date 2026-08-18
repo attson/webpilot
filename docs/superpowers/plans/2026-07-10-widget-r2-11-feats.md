@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **IDB DB name `caiji`** 不改
+- **IDB DB name `atwebpilot`** 不改
 - **No new dependencies**
 - **API key 永远不进 BG**
 - **Shadow DOM `mode: "open"`**;widget/index.css 里 `:host` 定义 `--c-zinc-*` 变量(v0.0.47)
@@ -76,7 +76,7 @@
   - `StepCardState._runningStartAt?: number` — 在 setCardStatus 到 running 时盖 `Date.now()`;后续 status change 不清
   - RPC `widget.openSidepanelWithSave { tabId } → null`
   - `rpc.widgetOpenSidepanelWithSave(input: { tabId: number }): Promise<null>`
-  - sidepanel `useEffect` 读 `caiji.pendingSave` 后调 `showSave(tabId)` 并 clear
+  - sidepanel `useEffect` 读 `atwebpilot.pendingSave` 后调 `showSave(tabId)` 并 clear
 
 - [ ] **Step 1: Write failing test for `_runningStartAt` stamping**
 
@@ -219,7 +219,7 @@ describe("widget.openSidepanelWithSave", () => {
     expect(chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 42 });
     expect(chrome.storage.session.set).toHaveBeenCalledWith(
       expect.objectContaining({
-        "caiji.pendingSave": expect.objectContaining({ tabId: 42 })
+        "atwebpilot.pendingSave": expect.objectContaining({ tabId: 42 })
       })
     );
   });
@@ -252,7 +252,7 @@ In `packages/extension/src/background/rpc-handlers.ts` `dispatch` switch, add:
     case "widget.openSidepanelWithSave": {
       await chrome.sidePanel.open({ tabId: req.tabId });
       await chrome.storage.session.set({
-        "caiji.pendingSave": { tabId: req.tabId, ts: Date.now() }
+        "atwebpilot.pendingSave": { tabId: req.tabId, ts: Date.now() }
       });
       return null;
     }
@@ -276,13 +276,13 @@ Expected: PASS
 
 - [ ] **Step 12: Add pendingSave focus effect in app-shell.tsx**
 
-In `packages/extension/src/sidepanel/shell/app-shell.tsx`, near the `caiji.pendingApproval` effect, add:
+In `packages/extension/src/sidepanel/shell/app-shell.tsx`, near the `atwebpilot.pendingApproval` effect, add:
 
 ```tsx
   // Widget 通过 widget.openSidepanelWithSave 唤起本面板时,BG 会在 chrome.storage.session
-  // 存 caiji.pendingSave;这里读到就调 showSave(tabId) 弹保存对话框。
+  // 存 atwebpilot.pendingSave;这里读到就调 showSave(tabId) 弹保存对话框。
   useEffect(() => {
-    const KEY = "caiji.pendingSave";
+    const KEY = "atwebpilot.pendingSave";
     void chrome.storage.session.get([KEY]).then(async (res) => {
       const p = (res as any)[KEY] as { tabId: number; ts: number } | undefined;
       if (!p) return;
@@ -2063,7 +2063,7 @@ gh pr create --title "feat(widget): round 2 — 11 项功能补齐" --body "$(ca
 - **元素圈选** —— header ⌖ 按钮 → 复用 element-capture content bundle → selector 塞进 input
 - **权限模式 pill** —— input 上方,复用 PermissionModePill 4-prop 签名
 - **error banner** —— chat body 顶部红条,setError(tabId, null) 关闭
-- **保存为工具入口** —— chat 尾部 "已执行 N 步 [保存为工具]";点击调 widget.openSidepanelWithSave RPC → sidepanel focus effect 读 caiji.pendingSave → 弹 SaveAsToolCard
+- **保存为工具入口** —— chat 尾部 "已执行 N 步 [保存为工具]";点击调 widget.openSidepanelWithSave RPC → sidepanel focus effect 读 atwebpilot.pendingSave → 弹 SaveAsToolCard
 - **历史 mini drawer** —— footer [🕒 历史] 切 mode;body 换成 listArchivedByUrl 结果;点条目 restoreArchived
 
 对应 spec: docs/superpowers/specs/2026-07-10-widget-r2-11-feats-design.md

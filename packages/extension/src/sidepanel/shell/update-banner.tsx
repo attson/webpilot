@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
 const REPO = "attson/atwebpilot";
-const CACHE_KEY = "caiji.update_check_v1";
-const DISMISS_KEY = "caiji.update_dismissed_v1";
+const CACHE_KEY = "atwebpilot.update_check_v1";
+const DISMISS_KEY = "atwebpilot.update_dismissed_v1";
 const TTL_MS = 24 * 60 * 60 * 1000;
 
 type CachedCheck = { tag: string; ts: number };

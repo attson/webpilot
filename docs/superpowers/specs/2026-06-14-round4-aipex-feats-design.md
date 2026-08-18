@@ -116,7 +116,7 @@ input toolbar 加一个新按钮 `🎯`（旁边的 `📎`、`@` 同行）。点
 
 - 外站 JS 通过 `window.postMessage({ source: "atwebpilot-replay", payload: ...}, "*")` 向 content script 发请求
 - content script 接到后向 BG 转发
-- BG 写入 `chrome.storage.local: caiji.pending_replay = {sourceUrl, ts, prompt, steps?}`（30s TTL）
+- BG 写入 `chrome.storage.local: atwebpilot.pending_replay = {sourceUrl, ts, prompt, steps?}`（30s TTL）
 - BG 调 `chrome.sidePanel.open({tabId})` 唤起
 - sidepanel mount 时检查 pending_replay，**总是显示审阅 modal**（不论 autoSend），用户看清来源、prompt、step count 再点接受 / 拒绝
 

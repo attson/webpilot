@@ -50,7 +50,7 @@ const payload = (over: Partial<PairPayload> = {}): PairPayload => ({
   installId: "inst",
   secret: "s",
   sessionId: "conn-a",
-  label: "~/code/caiji2",
+  label: "~/code/atwebpilot2",
   pid: 1,
   port: 51234,
   ...over
@@ -85,7 +85,7 @@ describe("broadcastTabs", () => {
     ownership.claim("1", {
       connectionId: "conn-a",
       sessionId: "sess-a",
-      label: "~/code/caiji2"
+      label: "~/code/atwebpilot2"
     });
 
     await broadcastTabs({
@@ -103,7 +103,7 @@ describe("broadcastTabs", () => {
 
     // conn-a holds tab 1; it is "mine" to A and "busy" to B.
     expect(toA[0]).toMatchObject({ tab_id: "1", mine: true, busy: false });
-    expect(toB[0]).toMatchObject({ tab_id: "1", mine: false, busy: true, busy_label: "~/code/caiji2" });
+    expect(toB[0]).toMatchObject({ tab_id: "1", mine: false, busy: true, busy_label: "~/code/atwebpilot2" });
     // Nobody holds tab 2.
     expect(toA[1]).toMatchObject({ busy: false, mine: false });
     expect(toB[1]).toMatchObject({ busy: false, mine: false });

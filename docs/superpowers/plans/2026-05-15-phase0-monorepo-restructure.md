@@ -15,7 +15,7 @@
 ## 文件结构总览（Phase 0 结束态）
 
 ```
-caiji2/
+atwebpilot2/
 ├─ pnpm-workspace.yaml                ← 新
 ├─ package.json                       ← 改写为 workspace 编排（仅留 -r 转发脚本）
 ├─ pnpm-lock.yaml                     ← 自动重新生成
@@ -737,7 +737,7 @@ Run: `head -100 AGENTS.md`
 在 AGENTS.md 里找到形如 ```src/├─ shared/...``` 的目录树块（或类似的 markdown 段落），整体替换为：
 
 ```
-caiji2/                              # pnpm workspaces monorepo（Phase 0 起）
+atwebpilot2/                              # pnpm workspaces monorepo（Phase 0 起）
 ├─ packages/
 │  ├─ shared/                        # 纯函数 + 类型，给后续 coordinator/daemon/server 共享
 │  │  ├─ src/                        # types / messages / static-scan / url-pattern / infer-json-schema

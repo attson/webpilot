@@ -272,7 +272,7 @@ MV3 content script 默认在 **isolated world**：能访问页面 DOM，但拿�
 浏览器本地（单设备、单浏览器、单 profile）
 │
 ├── IndexedDB (extension origin) — 主数据
-│   └── caiji.db
+│   └── atwebpilot.db
 │        ├── tools     (key: id)            ← 工具主表
 │        ├── versions  (index: toolId)      ← 历史版本
 │        └── runs      (index: toolId)      ← 运行记录
@@ -311,7 +311,7 @@ API Key 单独放 `chrome.storage.local`：
 
 ```json
 {
-  "schema": "caiji.tools/v1",
+  "schema": "atwebpilot.tools/v1",
   "exportedAt": 1715212800000,
   "tools": [ /* Tool[] without runs */ ]
 }
@@ -320,7 +320,7 @@ API Key 单独放 `chrome.storage.local`：
 ## 8. 模块边界与文件结构
 
 ```
-caiji2/
+atwebpilot2/
 ├─ manifest.json
 ├─ package.json
 ├─ tsconfig.json

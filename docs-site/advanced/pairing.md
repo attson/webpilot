@@ -63,7 +63,7 @@ cwd 是任意值。它真正带来的是 git worktree 和目录改名会被当�
 
 ```
 已接入的会话
-  ~/code/caiji2   pid 1234  :51234  ● connected   [断开]
+  ~/code/atwebpilot2   pid 1234  :51234  ● connected   [断开]
   ~/code/wanxin   pid 5678  :51299  ○ dormant     [重连]
 
 已信任

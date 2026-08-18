@@ -1,11 +1,11 @@
 /**
  * Right-click → "AtWebPilot" entries. Writes the chosen prompt to
- * chrome.storage.local under `caiji.pending_prompt` (5s TTL) and opens
+ * chrome.storage.local under `atwebpilot.pending_prompt` (5s TTL) and opens
  * the side panel for the active tab. The sidepanel's `usePendingPrompt`
  * hook consumes and clears the value on next mount.
  */
 
-export const PENDING_PROMPT_KEY = "caiji.pending_prompt";
+export const PENDING_PROMPT_KEY = "atwebpilot.pending_prompt";
 export const PENDING_TTL_MS = 5_000;
 
 const MENU_IDS = {

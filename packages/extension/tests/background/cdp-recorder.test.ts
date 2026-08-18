@@ -29,7 +29,7 @@ function fakeChrome(opts: { attachFails?: string; enabled?: boolean } = {}) {
     permissions: { contains: vi.fn(async () => opts.enabled !== false) },
     storage: {
       local: {
-        get: vi.fn(async () => ({ cdpRecorderEnabled: opts.enabled !== false })),
+        get: vi.fn(async () => ({ "atwebpilot.recorder.cdpEnabled": opts.enabled !== false })),
         set: vi.fn(async () => undefined)
       }
     }

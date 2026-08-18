@@ -1,41 +1,79 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  getAllowedHosts,
+  getFabPos,
+  getHiddenHosts,
+  getPanelSize,
+  hideHost,
+  isHostHidden,
+  matchesHostRule,
+  parseHostRules,
+  setFabPos,
+  shouldMountOnHost
+} from "@/content/widget/per-site";
 
-const storage: Record<string, any> = {};
-(globalThis as any).chrome = {
-  storage: {
-    local: {
-      get: vi.fn(async (keys: string[]) => Object.fromEntries(keys.map(k => [k, storage[k]]))),
-      set: vi.fn(async (obj: Record<string, any>) => { Object.assign(storage, obj); })
+const storage: Record<string, unknown> = {};
+
+beforeEach(() => {
+  for (const key of Object.keys(storage)) delete storage[key];
+  (globalThis as any).chrome = {
+    storage: {
+      local: {
+        get: vi.fn(async (keys: string[]) => Object.fromEntries(keys.map((key) => [key, storage[key]]))),
+        set: vi.fn(async (values: Record<string, unknown>) => Object.assign(storage, values))
+      }
     }
-  }
-};
+  };
+});
 
-describe("widget/per-site", () => {
-  beforeEach(() => { for (const k of Object.keys(storage)) delete storage[k]; vi.clearAllMocks(); });
-
-  it("hideHost + isHostHidden roundtrip", async () => {
-    const m = await import("@/content/widget/per-site");
-    expect(await m.isHostHidden("a.com")).toBe(false);
-    await m.hideHost("a.com");
-    expect(await m.isHostHidden("a.com")).toBe(true);
+describe("widget hostname rules", () => {
+  it("normalizes, deduplicates, and validates rules", () => {
+    expect(parseHostRules(" Example.com.\n*.Example.com\nexample.com\n")).toEqual({
+      ok: true,
+      rules: ["example.com", "*.example.com"]
+    });
+    expect(parseHostRules("https://example.com\nfoo.com/path\nfoo:*" )).toEqual({
+      ok: false,
+      invalid: ["https://example.com", "foo.com/path", "foo:*"]
+    });
   });
 
-  it("hideHost is idempotent", async () => {
-    const m = await import("@/content/widget/per-site");
-    await m.hideHost("b.com");
-    await m.hideHost("b.com");
-    expect(await m.getHiddenHosts()).toEqual(["b.com"]);
+  it("keeps exact and subdomain wildcard matching distinct", () => {
+    expect(matchesHostRule("example.com", "example.com")).toBe(true);
+    expect(matchesHostRule("www.example.com", "example.com")).toBe(false);
+    expect(matchesHostRule("www.example.com", "*.example.com")).toBe(true);
+    expect(matchesHostRule("example.com", "*.example.com")).toBe(false);
   });
 
-  it("fabPos per-host set/get", async () => {
-    const m = await import("@/content/widget/per-site");
-    await m.setFabPos("x.com", { x: 100, y: 200 });
-    expect(await m.getFabPos("x.com")).toEqual({ x: 100, y: 200 });
-    expect(await m.getFabPos("other.com")).toBeNull();
+  it("applies mode and gives the blocklist precedence", () => {
+    expect(shouldMountOnHost("other.com", "all", [], [])).toBe(true);
+    expect(shouldMountOnHost("other.com", "allowlist", ["example.com"], [])).toBe(false);
+    expect(shouldMountOnHost("example.com", "allowlist", ["example.com"], [])).toBe(true);
+    expect(shouldMountOnHost("example.com", "allowlist", ["example.com"], ["example.com"])).toBe(false);
   });
 
-  it("panelSize defaults to 320x480 when unset", async () => {
-    const m = await import("@/content/widget/per-site");
-    expect(await m.getPanelSize()).toEqual({ w: 320, h: 480 });
+  it("persists exact hosts from the existing hide action as blocklist entries", async () => {
+    storage["atwebpilot.widget.hiddenHosts"] = ["existing.com"];
+    await hideHost("NEW.Example.com.");
+    expect(storage["atwebpilot.widget.hiddenHosts"]).toEqual(["existing.com", "new.example.com"]);
+    expect(await getAllowedHosts()).toEqual([]);
+  });
+
+  it("keeps hideHost idempotent and readable through isHostHidden", async () => {
+    expect(await isHostHidden("a.com")).toBe(false);
+    await hideHost("a.com");
+    await hideHost("a.com");
+    expect(await isHostHidden("a.com")).toBe(true);
+    expect(await getHiddenHosts()).toEqual(["a.com"]);
+  });
+
+  it("stores FAB positions per host", async () => {
+    await setFabPos("x.com", { x: 100, y: 200 });
+    expect(await getFabPos("x.com")).toEqual({ x: 100, y: 200 });
+    expect(await getFabPos("other.com")).toBeNull();
+  });
+
+  it("uses the default panel size when none is stored", async () => {
+    expect(await getPanelSize()).toEqual({ w: 320, h: 480 });
   });
 });

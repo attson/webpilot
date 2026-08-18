@@ -40,7 +40,7 @@ const payload = (over: Partial<PairPayload> = {}): PairPayload => ({
   installId: "inst_abc",
   secret: "s",
   sessionId: "sess_1",
-  label: "~/code/caiji2",
+  label: "~/code/atwebpilot2",
   pid: 1,
   port: 51234,
   ...over
@@ -97,7 +97,7 @@ describe("CoordinatorPool", () => {
     const pool = makePool();
     await pool.addFromPairing(payload());
     expect(pool.list()[0]).toMatchObject({
-      label: "~/code/caiji2",
+      label: "~/code/atwebpilot2",
       pid: 1,
       port: 51234,
       installId: "inst_abc"

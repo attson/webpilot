@@ -28,16 +28,16 @@ describe("widget RPCs", () => {
     await dispatch({ type: "widget.openSidepanel", tabId: 42, pendingApprovalId: "abc" } as any);
     expect(chrome.sidePanel.open).toHaveBeenCalledWith({ tabId: 42 });
     expect(chrome.storage.session.set).toHaveBeenCalledWith(
-      expect.objectContaining({ "caiji.pendingApproval": expect.objectContaining({ tabId: 42, approvalId: "abc" }) })
+      expect.objectContaining({ "atwebpilot.pendingApproval": expect.objectContaining({ tabId: 42, approvalId: "abc" }) })
     );
   });
 
   it("widget.markHostHidden appends host to hiddenHosts list", async () => {
-    (chrome.storage.local.get as any).mockResolvedValueOnce({ "caiji.widget.hiddenHosts": ["foo.com"] });
+    (chrome.storage.local.get as any).mockResolvedValueOnce({ "atwebpilot.widget.hiddenHosts": ["foo.com"] });
     const { dispatch } = await import("@/background/rpc-handlers");
     await dispatch({ type: "widget.markHostHidden", host: "bar.com" } as any);
     expect(chrome.storage.local.set).toHaveBeenCalledWith(
-      expect.objectContaining({ "caiji.widget.hiddenHosts": ["foo.com", "bar.com"] })
+      expect.objectContaining({ "atwebpilot.widget.hiddenHosts": ["foo.com", "bar.com"] })
     );
   });
 });

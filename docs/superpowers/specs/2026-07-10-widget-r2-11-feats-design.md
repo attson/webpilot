@@ -248,7 +248,7 @@ function onResizeStart(e) {
 ✓ 已执行 N 步  [保存为工具]
 ```
 
-点击:`rpc.widgetOpenSidepanelWithSave({tabId})` → BG 打开 sidepanel + 存 `caiji.pendingSave: {tabId, ts}`;sidepanel `useEffect` 读到 → 调 `showSave(tabId)` → SaveAsToolCard 弹出
+点击:`rpc.widgetOpenSidepanelWithSave({tabId})` → BG 打开 sidepanel + 存 `atwebpilot.pendingSave: {tabId, ts}`;sidepanel `useEffect` 读到 → 调 `showSave(tabId)` → SaveAsToolCard 弹出
 
 **新增 RPC**:
 
@@ -263,7 +263,7 @@ BG 处理:
 case "widget.openSidepanelWithSave": {
   await chrome.sidePanel.open({ tabId: req.tabId });
   await chrome.storage.session.set({
-    "caiji.pendingSave": { tabId: req.tabId, ts: Date.now() }
+    "atwebpilot.pendingSave": { tabId: req.tabId, ts: Date.now() }
   });
   return null;
 }
@@ -273,15 +273,15 @@ Sidepanel focus effect(和 pendingApproval 同款,加一段):
 
 ```ts
 useEffect(() => {
-  chrome.storage.session.get(["caiji.pendingSave"]).then((res) => {
-    const p = res["caiji.pendingSave"];
+  chrome.storage.session.get(["atwebpilot.pendingSave"]).then((res) => {
+    const p = res["atwebpilot.pendingSave"];
     if (!p) return;
     if (Date.now() - p.ts > 30_000) {
-      chrome.storage.session.remove(["caiji.pendingSave"]);
+      chrome.storage.session.remove(["atwebpilot.pendingSave"]);
       return;
     }
     showSave(p.tabId);
-    chrome.storage.session.remove(["caiji.pendingSave"]);
+    chrome.storage.session.remove(["atwebpilot.pendingSave"]);
   });
 }, []);
 ```
@@ -301,7 +301,7 @@ useEffect(() => {
 
 **Storage keys**(chrome.storage.session):
 
-- `caiji.pendingSave: {tabId, ts}` — save 中继
+- `atwebpilot.pendingSave: {tabId, ts}` — save 中继
 
 ## 15 · 测试策略
 

@@ -21,11 +21,11 @@ function safeFilename(s: string): string {
 
 function exportOne(t: Tool) {
   const bundle: ExportBundle = {
-    schema: "caiji.tools/v2",
+    schema: "atwebpilot.tools/v2",
     exportedAt: Date.now(),
     tools: [t],
   };
-  downloadJson(bundle, `caiji-${safeFilename(t.name)}-${new Date().toISOString().slice(0, 10)}.json`);
+  downloadJson(bundle, `atwebpilot-${safeFilename(t.name)}-${new Date().toISOString().slice(0, 10)}.json`);
 }
 
 type Props = {

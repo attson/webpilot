@@ -265,7 +265,7 @@ Expected: FAIL — `chat_sessions` store does not exist。
 import { type DBSchema, type IDBPDatabase, openDB } from "idb";
 import type { PersistedSession, RunRecord, Tool } from "@atwebpilot/shared/types";
 
-export interface CaijiDB extends DBSchema {
+export interface atwebpilotDB extends DBSchema {
   tools: {
     key: string;
     value: Tool;
@@ -287,14 +287,14 @@ export interface CaijiDB extends DBSchema {
   };
 }
 
-const DB_NAME = "caiji";
+const DB_NAME = "atwebpilot";
 const DB_VERSION = 2;
 
-let dbPromise: Promise<IDBPDatabase<CaijiDB>> | null = null;
+let dbPromise: Promise<IDBPDatabase<atwebpilotDB>> | null = null;
 
-export function getDB(): Promise<IDBPDatabase<CaijiDB>> {
+export function getDB(): Promise<IDBPDatabase<atwebpilotDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<CaijiDB>(DB_NAME, DB_VERSION, {
+    dbPromise = openDB<atwebpilotDB>(DB_NAME, DB_VERSION, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           const tools = db.createObjectStore("tools", { keyPath: "id" });
@@ -2296,7 +2296,7 @@ grep -n "2026-05-15" docs/superpowers/plans/README.md
 - [ ] sidepanel 内多次 reload → 当前会话保留
 - [ ] 浏览器整个关掉重开 → 同 URL banner 出现，恢复后消息齐全
 - [ ] 关 tab 后 reopen 同 URL 新 tab → banner 出现
-- [ ] 单 URL 连续新建 25 个会话 → IDB 中只剩 20 条 archived（最老 5 条被 evict、对应 runs 也删了）。在 DevTools → Application → IndexedDB → caiji 看 chat_sessions 行数确认
+- [ ] 单 URL 连续新建 25 个会话 → IDB 中只剩 20 条 archived（最老 5 条被 evict、对应 runs 也删了）。在 DevTools → Application → IndexedDB → atwebpilot 看 chat_sessions 行数确认
 - [ ] 流式中途关 sidepanel → 重开后该会话 status 是 aborted、可以重发
 - [ ] 恢复一个 attachedTabs 里 tab 已关的会话 → 系统消息提示 + 列表里那个 tab 消失
 - [ ] history drawer "清空此 URL 历史" → 全清
@@ -2316,6 +2316,6 @@ git commit -m "docs(plan): index 2026-05-19 sidepanel session persistence"
 
 1. `pnpm typecheck` + `pnpm test` 全过；总测试数较改前增加 ≥20（11 sessions-storage + 5 auto-persist + 4 hydrate + 3 tab-close-archiver + 5 url-recovery + 4 drawer + 2 store new methods + 1 boot integration ≈ 35）
 2. 旧 `closed-sessions-pruner.ts` / `closed-sessions-banner.tsx` 文件与对应测试已删除
-3. IDB DevTools 能看到 `caiji` DB v2 + `chat_sessions` store
+3. IDB DevTools 能看到 `atwebpilot` DB v2 + `chat_sessions` store
 4. 手测清单 7 项全部通过
 5. 关 sidepanel 后再开 sidepanel：当前 tab 的会话原样恢复（仅 status / streamingAssistantText 等瞬时字段重置）

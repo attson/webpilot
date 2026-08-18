@@ -13,7 +13,7 @@
 **关键既有事实（已核对）:**
 - 当前主分支头 `52ca6c0 chore: release v0.0.17`，root `package.json` version `0.0.17`。
 - 现有源码层 `@atwebpilot/` 出现 ~451 行（含 docs），`AtWebPilot` ~74 行，`atwebpilot` ~145 文件。
-- `packages/extension/src/background/storage/db.ts` 有 `const DB_NAME = "caiji";`。**sed 不会改 `"caiji"` 字面值**——需手工把它改为 `"atwebpilot"`（spec §1 决策）。
+- `packages/extension/src/background/storage/db.ts` 有 `const DB_NAME = "atwebpilot";`。**sed 不会改 `"atwebpilot"` 字面值**——需手工把它改为 `"atwebpilot"`（spec §1 决策）。
 - `packages/extension/manifest.json` 顶层 `"key"` 是 base64，**不含 `atwebpilot` 子串**，sed 不应触及。Verify 时显式断言这一行 unchanged。
 - macOS sed 必须 `-i ''`（darwin 24.6 环境）。
 
@@ -42,7 +42,7 @@
 - [ ] **Step 1: 切分支**
 
 ```bash
-cd /Users/attson/code/caiji2
+cd /Users/attson/code/atwebpilot2
 git checkout main
 git pull --ff-only
 git checkout -b feat/atwebpilot-rename
@@ -95,7 +95,7 @@ dry-run 阶段无文件修改。直接进 Task 2。
 ⚠️ 顺序非常重要。先做最具体的命名空间替换。
 
 ```bash
-cd /Users/attson/code/caiji2
+cd /Users/attson/code/atwebpilot2
 grep -rIl '@atwebpilot/' --exclude-dir={node_modules,dist,.git} . \
   | xargs sed -i '' 's|@atwebpilot/|@atwebpilot/|g'
 ```
@@ -184,20 +184,20 @@ git commit -m "refactor: rename @atwebpilot/ → @atwebpilot/, AtWebPilot → At
 grep -n 'DB_NAME' packages/extension/src/background/storage/db.ts
 ```
 
-Expected: 类似 `const DB_NAME = "caiji";`（sed 未碰，因 `"caiji"` 不含 atwebpilot）。
+Expected: 类似 `const DB_NAME = "atwebpilot";`（sed 未碰，因 `"atwebpilot"` 不含 atwebpilot）。
 
 - [ ] **Step 2: 改 DB_NAME**
 
-把 `const DB_NAME = "caiji";` 改为 `const DB_NAME = "atwebpilot";`。
+把 `const DB_NAME = "atwebpilot";` 改为 `const DB_NAME = "atwebpilot";`。
 
-注意：这是字符串值的改动，**不要**改类型名 `CaijiDB` 之类（如果有的话——`CaijiDB` 是历史类型名，不属于本 rename 范围；spec §1 只说 brand+package rename，不动数据库类型名以减小 diff 面积）。
+注意：这是字符串值的改动，**不要**改类型名 `atwebpilotDB` 之类（如果有的话——`atwebpilotDB` 是历史类型名，不属于本 rename 范围；spec §1 只说 brand+package rename，不动数据库类型名以减小 diff 面积）。
 
 ```bash
 # 验证只有 DB_NAME 这一行变了
 git diff packages/extension/src/background/storage/db.ts
 ```
 
-Expected: diff 只有 `const DB_NAME = "caiji";` → `const DB_NAME = "atwebpilot";` 一行。
+Expected: diff 只有 `const DB_NAME = "atwebpilot";` → `const DB_NAME = "atwebpilot";` 一行。
 
 - [ ] **Step 3: 核对关键文件**（眼瞰）
 
@@ -224,7 +224,7 @@ Expected：
 
 ```bash
 git add packages/extension/src/background/storage/db.ts
-git commit -m "refactor(extension): DB_NAME caiji → atwebpilot (no migration)"
+git commit -m "refactor(extension): DB_NAME atwebpilot → atwebpilot (no migration)"
 ```
 
 ---
@@ -359,7 +359,7 @@ git commit -m "docs(plan): add Plan 14 — atwebpilot rename index row"
 2. 找到本地加载的 dev 扩展（指向 `packages/extension/dist/`），点 reload
 3. **核对显示名**：扩展卡片标题应显示 **AtWebPilot — AI 网页助手**
 4. 点扩展图标 → 打开 sidepanel
-5. DevTools → Application → IndexedDB：看到新建的 `atwebpilot` 库；旧 `caiji` 库仍存在但不被读
+5. DevTools → Application → IndexedDB：看到新建的 `atwebpilot` 库；旧 `atwebpilot` 库仍存在但不被读
 6. 在任意网页输入「总结此页」→ 应该照常工作
 
 Expected: 全部 ok。
@@ -385,7 +385,7 @@ gh pr create --base main --head feat/atwebpilot-rename \
 - 包 scope `@atwebpilot/*` → `@atwebpilot/*`、4 个 package.json name 同步
 - 扩展显示名 `AtWebPilot — AI 网页助手` → `AtWebPilot — AI 网页助手`
 - README/AGENTS/历史 specs/plans 全部 sed 替换
-- `DB_NAME caiji → atwebpilot`，不迁移老 IndexedDB 数据
+- `DB_NAME atwebpilot → atwebpilot`，不迁移老 IndexedDB 数据
 - Chrome 扩展 `"key"` 保留（扩展 ID 不变）
 
 ## Test Plan

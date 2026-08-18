@@ -30,7 +30,7 @@ export function DebugDrawer() {
   function exportBundle() {
     const bundle = {
       exportedAt: new Date().toISOString(),
-      schema: "caiji.session-bundle.v1",
+      schema: "atwebpilot.session-bundle.v1",
       session: {
         tabId: session.tabId,
         url: session.url,
@@ -52,7 +52,7 @@ export function DebugDrawer() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `caiji-session-${Date.now()}.json`;
+    a.download = `atwebpilot-session-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }

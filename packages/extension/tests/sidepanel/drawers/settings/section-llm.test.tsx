@@ -80,6 +80,7 @@ describe("SectionLlm", () => {
       })
     );
     expect(container.textContent).toContain("连接正常");
+    expect(container.textContent).not.toContain("启用页内浮窗");
   });
 
 });

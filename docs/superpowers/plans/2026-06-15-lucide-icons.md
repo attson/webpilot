@@ -61,7 +61,7 @@ Final fragment should read:
 
 - [ ] **Step 2: Install**
 
-Run from `/Users/attson/code/caiji2`:
+Run from `/Users/attson/code/atwebpilot2`:
 
 ```bash
 pnpm install
@@ -83,14 +83,14 @@ Expected output: `function function`
 
 - [ ] **Step 4: Typecheck**
 
-Run from `/Users/attson/code/caiji2`: `pnpm -r typecheck`
+Run from `/Users/attson/code/atwebpilot2`: `pnpm -r typecheck`
 
 Expected: PASS (adding a dep without using it shouldn't break anything).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/extension/package.json /Users/attson/code/caiji2/pnpm-lock.yaml
+git add packages/extension/package.json /Users/attson/code/atwebpilot2/pnpm-lock.yaml
 git commit -m "chore(deps): add lucide-react ^0.460.0 to extension"
 ```
 
@@ -141,7 +141,7 @@ Replace with:
 
 - [ ] **Step 3: Typecheck + run header tests**
 
-Run from `/Users/attson/code/caiji2`:
+Run from `/Users/attson/code/atwebpilot2`:
 
 ```bash
 pnpm -r typecheck && cd packages/extension && pnpm test -- header
@@ -218,7 +218,7 @@ Change line 120 from `              🎯` to:
 
 - [ ] **Step 4: Typecheck + run input-toolbar tests**
 
-Run from `/Users/attson/code/caiji2`:
+Run from `/Users/attson/code/atwebpilot2`:
 
 ```bash
 pnpm -r typecheck && cd packages/extension && pnpm test -- input-toolbar
@@ -266,7 +266,7 @@ Change to:
 
 - [ ] **Step 3: Typecheck + run mention-picker tests**
 
-Run from `/Users/attson/code/caiji2`:
+Run from `/Users/attson/code/atwebpilot2`:
 
 ```bash
 pnpm -r typecheck && cd packages/extension && pnpm test -- mention-picker
@@ -289,7 +289,7 @@ git commit -m "feat(sidepanel): swap mention-picker emoji for lucide icons (Spar
 
 - [ ] **Step 1: Full repo typecheck**
 
-Run from `/Users/attson/code/caiji2`: `pnpm -r typecheck`
+Run from `/Users/attson/code/atwebpilot2`: `pnpm -r typecheck`
 
 Expected: 4 packages PASS.
 
@@ -301,7 +301,7 @@ Expected: 87 files / 473 tests PASS (same baseline as quick-actions ship; this P
 
 - [ ] **Step 3: Production build**
 
-Run from `/Users/attson/code/caiji2`: `pnpm build`
+Run from `/Users/attson/code/atwebpilot2`: `pnpm build`
 
 Expected: PASS, no warnings.
 

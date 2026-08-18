@@ -33,7 +33,7 @@ export function ResultView(props: { run: RunRecord }) {
       </details>
 
       <button
-        onClick={() => downloadJson(run.output, `caiji-output-${run.id.slice(0, 8)}.json`)}
+        onClick={() => downloadJson(run.output, `atwebpilot-output-${run.id.slice(0, 8)}.json`)}
         className="self-start px-3 py-1 bg-emerald-700 rounded"
       >
         导出 output JSON

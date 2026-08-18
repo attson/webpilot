@@ -79,17 +79,17 @@
 ### 5.1 chrome.storage.local(新增 key)
 
 ```ts
-"caiji.widget.hiddenHosts"     // string[]  精确匹配 host
-"caiji.widget.fabPos"          // { [host: string]: { x, y } }
-"caiji.widget.panelSize"       // { w, h }  全局记忆
+"atwebpilot.widget.hiddenHosts"     // string[]  精确匹配 host
+"atwebpilot.widget.fabPos"          // { [host: string]: { x, y } }
+"atwebpilot.widget.panelSize"       // { w, h }  全局记忆
 ```
 
-**注**:总闸 `widgetEnabled` 走 LlmSettings(存于 `caiji.llm`),不引入独立 `caiji.widget.globalEnabled`;这样设置页与其他 LLM 偏好一同展示,CRUD 路径统一。
+**注**:总闸 `widgetEnabled` 走 LlmSettings(存于 `atwebpilot.llm`),不引入独立 `atwebpilot.widget.globalEnabled`;这样设置页与其他 LLM 偏好一同展示,CRUD 路径统一。
 
 ### 5.2 LlmSettings 扩展(`packages/shared/src/types.ts`)
 
 ```ts
-widgetEnabled: boolean;    // 默认 true;总闸;存于 caiji.llm 下
+widgetEnabled: boolean;    // 默认 true;总闸;存于 atwebpilot.llm 下
 ```
 
 ### 5.3 SessionData 加 `_rev`
@@ -107,7 +107,7 @@ type SessionData = {
 ### 5.4 pendingApprovalId 中继(chrome.storage.session)
 
 ```ts
-"caiji.pendingApproval"       // { tabId, approvalId, ts } | null
+"atwebpilot.pendingApproval"       // { tabId, approvalId, ts } | null
 ```
 
 Widget 触发 sidebar 打开时写入;sidepanel 起来后 `useEffect` 读一次,scroll 到该 step-card + 高亮 2s;读完立刻 clear。
@@ -120,10 +120,10 @@ Widget 触发 sidebar 打开时写入;sidepanel 起来后 `useEffect` 读一次,
 async function mount() {
   if (window !== window.top) return;                      // 只顶层
   if (document.contentType !== "text/html") return;       // 不是 HTML
-  const s = await chrome.storage.local.get(["caiji.llm"]);
-  const enabled = s["caiji.llm"]?.widgetEnabled !== false;
+  const s = await chrome.storage.local.get(["atwebpilot.llm"]);
+  const enabled = s["atwebpilot.llm"]?.widgetEnabled !== false;
   if (!enabled) return;
-  const hosts = (await chrome.storage.local.get(["caiji.widget.hiddenHosts"]))["caiji.widget.hiddenHosts"] ?? [];
+  const hosts = (await chrome.storage.local.get(["atwebpilot.widget.hiddenHosts"]))["atwebpilot.widget.hiddenHosts"] ?? [];
   if (hosts.includes(location.host)) return;
 
   const el = document.createElement("atwebpilot-widget");
@@ -256,7 +256,7 @@ case "widget.openSidepanel": {
   await chrome.sidePanel.open({ tabId: req.tabId });
   if (req.pendingApprovalId) {
     await chrome.storage.session.set({
-      "caiji.pendingApproval": { tabId: req.tabId, approvalId: req.pendingApprovalId, ts: Date.now() }
+      "atwebpilot.pendingApproval": { tabId: req.tabId, approvalId: req.pendingApprovalId, ts: Date.now() }
     });
   }
   return null;
@@ -271,12 +271,12 @@ case "widget.openSidepanel": {
 Sidepanel mount 时的 `useEffect`:
 ```ts
 useEffect(() => {
-  chrome.storage.session.get(["caiji.pendingApproval"]).then((res) => {
-    const p = res["caiji.pendingApproval"];
+  chrome.storage.session.get(["atwebpilot.pendingApproval"]).then((res) => {
+    const p = res["atwebpilot.pendingApproval"];
     if (!p) return;
     if (Date.now() - p.ts > 30_000) return;  // 太老忽略
     scrollToStepCard(p.approvalId);
-    chrome.storage.session.remove(["caiji.pendingApproval"]);
+    chrome.storage.session.remove(["atwebpilot.pendingApproval"]);
   });
 }, []);
 ```

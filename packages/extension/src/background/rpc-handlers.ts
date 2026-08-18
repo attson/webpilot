@@ -39,7 +39,7 @@ async function readLlmSettings(): Promise<{
   maxSelfHealOutputTokens: number;
   apiKey: string;
 }> {
-  const KEY = "caiji.llm";
+  const KEY = "atwebpilot.llm";
   const raw = (await chrome.storage.local.get([KEY]))[KEY] ?? {};
   const session = (await chrome.storage.session?.get([KEY]))?.[KEY] ?? {};
   const apiKey = (raw as Record<string, string>).apiKey || (session as Record<string, string>).apiKey || "";
@@ -167,7 +167,7 @@ export async function dispatch(req: RpcRequest): Promise<Json> {
       await chrome.sidePanel.open({ tabId: req.tabId });
       if (req.pendingApprovalId) {
         await chrome.storage.session.set({
-          "caiji.pendingApproval": {
+          "atwebpilot.pendingApproval": {
             tabId: req.tabId,
             approvalId: req.pendingApprovalId,
             ts: Date.now()
@@ -179,12 +179,12 @@ export async function dispatch(req: RpcRequest): Promise<Json> {
     case "widget.openSidepanelWithSave": {
       await chrome.sidePanel.open({ tabId: req.tabId });
       await chrome.storage.session.set({
-        "caiji.pendingSave": { tabId: req.tabId, ts: Date.now() }
+        "atwebpilot.pendingSave": { tabId: req.tabId, ts: Date.now() }
       });
       return null;
     }
     case "widget.markHostHidden": {
-      const KEY = "caiji.widget.hiddenHosts";
+      const KEY = "atwebpilot.widget.hiddenHosts";
       const raw = (await chrome.storage.local.get([KEY]))[KEY];
       const list = Array.isArray(raw) ? [...raw] : [];
       if (!list.includes(req.host)) list.push(req.host);

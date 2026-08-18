@@ -206,7 +206,7 @@ export type RunRecord = {
 };
 
 export type ExportBundle = {
-  schema: "caiji.tools/v2";
+  schema: "atwebpilot.tools/v2";
   exportedAt: number;
   tools: Tool[];
 };
@@ -287,6 +287,8 @@ export type LlmSettings = {
   maxSelfHealOutputTokens: number;
   /** Plan 28: 页内浮窗总闸;默认 true */
   widgetEnabled: boolean;
+  /** 页内浮窗站点策略：全部站点（黑名单除外）或仅白名单。默认 all。 */
+  widgetSiteMode?: "all" | "allowlist";
   /** 会话历史进入模型前的上下文压缩策略。默认 auto。 */
   contextPolicy?: ContextPolicy;
   /** contextPolicy=custom 时的压缩触发阈值，按序列化字符数估算。 */

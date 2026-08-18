@@ -113,7 +113,7 @@ own permit. So:
 - The worker decides. Known `installId` with a matching `secret` connects
   straight away and the page reports "already trusted" and closes itself.
   Otherwise the worker injects a shadow-DOM overlay — reusing the machinery in
-  `content/widget/` — reading "the session in `~/code/caiji2` wants to control
+  `content/widget/` — reading "the session in `~/code/atwebpilot2` wants to control
   your browser", with Allow and Deny. The page cannot forge that overlay's
   outcome.
 
@@ -240,7 +240,7 @@ The Coordinator sub-page replaces its single URL field with two lists:
 
 ```
 已接入的会话
-  ~/code/caiji2   pid 1234  :51234  ● connected   [断开]
+  ~/code/atwebpilot2   pid 1234  :51234  ● connected   [断开]
   ~/code/wanxin   pid 5678  :51299  ○ dormant     [重连]
 
 已信任
