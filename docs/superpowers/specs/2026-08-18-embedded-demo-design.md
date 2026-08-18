@@ -1,6 +1,14 @@
 # Embedded Demo Design
 
-**Status:** proposed.
+**Status:** in progress.
+
+**Probe result.** The real `AppShell` mounts under the demo shim and renders the
+full panel — header, tab pill, quick-action suggestions, input, permission pill.
+The demo therefore runs the actual side panel, and the homepage may say so. The
+chrome surface it needs turned out to be exactly what the shim already covers
+plus `bookmarks.getTree` and `tabs.captureVisibleTab`. Kept as a regression test
+at `tests/demo/app-shell-probe.test.tsx` so the demo cannot silently stop
+mounting.
 
 ## Problem
 

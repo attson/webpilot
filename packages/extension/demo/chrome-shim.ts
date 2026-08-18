@@ -142,12 +142,16 @@ export function installChromeShim(opts: ShimOptions = {}): void {
       create: async () => tab,
       remove: async () => undefined,
       sendMessage: async () => undefined,
+      captureVisibleTab: async () =>
+        // 1x1 transparent png — the demo never shows a screenshot, but the
+        // panel's visual-evidence path expects a data URL rather than a throw.
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
       onRemoved: { addListener: () => undefined, removeListener: () => undefined },
       onUpdated: { addListener: () => undefined, removeListener: () => undefined },
       onActivated: { addListener: () => undefined, removeListener: () => undefined }
     },
     windows: { update: async () => undefined },
-    bookmarks: { search: async () => [] },
+    bookmarks: { search: async () => [], getTree: async () => [] },
     history: { search: async () => [] },
     permissions: { contains: async () => false, request: async () => false },
     alarms: {
