@@ -45,6 +45,14 @@ jobs:
         working-directory: docs-site
         run: pnpm gen
 
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build embedded demo
+        # Writes into docs-site/public/demo, which VitePress copies verbatim —
+        # so this has to run before the site build.
+        run: pnpm -F @atwebpilot/extension build:demo
+
       - name: Build site
         working-directory: docs-site
         run: pnpm exec vitepress build

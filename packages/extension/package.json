@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:demo": "vite build --config vite.demo.config.ts"
   },
   "dependencies": {
     "@atwebpilot/shared": "workspace:*",

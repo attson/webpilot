@@ -1,4 +1,5 @@
 import type { LlmStreamEvent } from "@atwebpilot/shared/llm";
+import type { Json } from "@atwebpilot/shared/types";
 
 /**
  * The scripted run the homepage demo replays through MockLlmClient.
@@ -14,7 +15,7 @@ export const DEMO_PROMPT = "采集这个商品的标题、价格和前 3 条评�
 /** Delay between rounds so the run reads at human pace. */
 export const ROUND_DELAY_MS = 900;
 
-const call = (id: string, name: string, input: unknown): LlmStreamEvent[] => [
+const call = (id: string, name: string, input: Json): LlmStreamEvent[] => [
   { type: "tool_use_start", id, name },
   { type: "tool_use_end", id, input },
   { type: "message_end", usage: { input_tokens: 0, output_tokens: 0 } }
