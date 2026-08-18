@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - "docs-site/**"
+      # The demo is built into the site, so a change to it alone must still
+      # redeploy — otherwise the homepage silently keeps the old demo.
+      - "packages/extension/demo/**"
+      - "packages/extension/vite.demo.config.ts"
       - "packages/shared/src/llm/builtin-tool-defs.ts"
       - ".github/workflows/deploy-docs.yml"
   workflow_dispatch:
