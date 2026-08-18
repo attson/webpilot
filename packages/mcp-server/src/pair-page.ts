@@ -38,8 +38,10 @@ export function renderPairPage(payload: PairPayload): string {
     if (e.data.ok) {
       el.textContent = e.data.trusted ? "已信任，连接中…" : "已连接";
       setTimeout(function () { window.close(); }, 1200);
-    } else {
+    } else if (e.data.reason === "denied") {
       el.textContent = "已拒绝。可以关闭本页。";
+    } else {
+      el.textContent = "连接扩展失败。请刷新页面重试，或检查扩展是否已启用。";
     }
   });
 

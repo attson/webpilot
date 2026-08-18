@@ -1,121 +1,154 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { normalizeHostPattern, resolveInjectionPolicy } from "@atwebpilot/shared";
+import type { InjectionMode, SiteInjectionRule } from "@atwebpilot/shared/types";
 import { useSettings } from "@/sidepanel/chat/settings-store";
-import {
-  getAllowedHosts,
-  getHiddenHosts,
-  parseHostRules,
-  setAllowedHosts,
-  setHiddenHosts
-} from "@/content/widget/per-site";
 
-type ListEditorProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  onSave: (rules: string[]) => Promise<void>;
-};
+const MODES: Array<{ value: InjectionMode; label: string }> = [
+  { value: "disabled", label: "禁用" },
+  { value: "read", label: "只读" },
+  { value: "operate", label: "操作" },
+  { value: "diagnostic", label: "诊断" }
+];
 
-function HostListEditor({ label, value, onChange, onSave }: ListEditorProps) {
-  const parsed = parseHostRules(value);
-
-  return (
-    <label className="block space-y-1">
-      <span className="text-zinc-300">{label}</span>
-      <textarea
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={() => {
-          if (!parsed.ok) return;
-          onChange(parsed.rules.join("\n"));
-          void onSave(parsed.rules);
-        }}
-        rows={4}
-        spellCheck={false}
-        placeholder={"example.com\n*.example.com"}
-        className="w-full resize-y rounded border border-zinc-700 bg-zinc-950 px-2 py-1.5 font-mono text-[11px] text-zinc-200 outline-none focus:border-blue-500"
-      />
-      {!parsed.ok ? (
-        <span className="block break-words text-[11px] text-rose-400">
-          无效规则：{parsed.invalid.join("、")}。只填写 hostname，不含协议、端口或路径。
-        </span>
-      ) : (
-        <span className="block text-[11px] text-zinc-500">
-          每行一条；example.com 精确匹配，*.example.com 匹配子域名。
-        </span>
-      )}
-    </label>
-  );
-}
+const MODE_LABEL: Record<InjectionMode, string> = Object.fromEntries(
+  MODES.map((item) => [item.value, item.label])
+) as Record<InjectionMode, string>;
 
 export function SectionMounting() {
   const settings = useSettings();
-  const [allowedText, setAllowedText] = useState("");
-  const [hiddenText, setHiddenText] = useState("");
+  const rules = settings.siteInjectionRules ?? [];
+  const [currentHost, setCurrentHost] = useState<string | null>(null);
 
   useEffect(() => {
-    void Promise.all([getAllowedHosts(), getHiddenHosts()]).then(([allowed, hidden]) => {
-      setAllowedText(allowed.join("\n"));
-      setHiddenText(hidden.join("\n"));
-    });
+    void chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+      if (!tab?.url) return;
+      try { setCurrentHost(new URL(tab.url).hostname); } catch { setCurrentHost(null); }
+    }).catch(() => undefined);
   }, []);
+
+  const resolved = useMemo(() => currentHost ? resolveInjectionPolicy({
+    hostname: currentHost,
+    defaultInjectionMode: settings.defaultInjectionMode ?? "operate",
+    defaultAssistantEnabled: settings.defaultAssistantEnabled !== false,
+    rules
+  }) : null, [currentHost, rules, settings.defaultAssistantEnabled, settings.defaultInjectionMode]);
+
+  function saveRules(next: SiteInjectionRule[]): void {
+    void settings.save({ siteInjectionRules: next });
+  }
+
+  function patchRule(index: number, patch: Partial<SiteInjectionRule>): void {
+    saveRules(rules.map((rule, i) => i === index ? { ...rule, ...patch } : rule));
+  }
+
+  function moveRule(index: number, direction: -1 | 1): void {
+    const target = index + direction;
+    if (target < 0 || target >= rules.length) return;
+    const next = [...rules];
+    [next[index], next[target]] = [next[target], next[index]];
+    saveRules(next);
+  }
 
   return (
     <div className="space-y-3 text-xs">
       <section className="space-y-3 rounded bg-zinc-900 p-3">
-        <h3 className="text-zinc-300">页内浮窗</h3>
+        <h3 className="text-zinc-300">默认策略</h3>
+        <label className="flex items-center gap-2">
+          <span className="w-24 text-zinc-400">注入模式</span>
+          <select
+            aria-label="默认注入模式"
+            value={settings.defaultInjectionMode ?? "operate"}
+            onChange={(event) => void settings.save({ defaultInjectionMode: event.target.value as InjectionMode })}
+            className="rounded bg-zinc-800 px-2 py-1 text-zinc-200"
+          >
+            {MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
+          </select>
+        </label>
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
-            checked={settings.widgetEnabled !== false}
-            onChange={(event) => void settings.save({ widgetEnabled: event.target.checked })}
+            checked={settings.defaultAssistantEnabled !== false}
+            onChange={(event) => void settings.save({ defaultAssistantEnabled: event.target.checked })}
           />
-          <span className="text-zinc-300">启用每页右下角对话入口</span>
+          <span className="text-zinc-300">默认启用网页助手（浮窗与运行边框）</span>
         </label>
-
-        <fieldset className="space-y-1" disabled={settings.widgetEnabled === false}>
-          <legend className="mb-1 text-zinc-400">显示范围</legend>
-          <div className="inline-flex rounded border border-zinc-700 bg-zinc-950 p-0.5">
-            {([
-              ["all", "全部站点"],
-              ["allowlist", "仅白名单"]
-            ] as const).map(([mode, label]) => (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={(settings.widgetSiteMode ?? "all") === mode}
-                onClick={() => void settings.save({ widgetSiteMode: mode })}
-                className={(settings.widgetSiteMode ?? "all") === mode
-                  ? "rounded bg-zinc-700 px-2 py-1 text-zinc-100"
-                  : "rounded px-2 py-1 text-zinc-400 hover:text-zinc-200"}
-              >
-                {label}
-              </button>
-            ))}
+        {resolved && currentHost ? (
+          <div className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-[11px] text-zinc-400">
+            当前站点 <span className="font-mono text-zinc-300">{currentHost}</span>：
+            {MODE_LABEL[resolved.injectionMode]} · 网页助手{resolved.assistantEnabled ? "开启" : "关闭"}
+            {resolved.matchedPattern ? <span> · 命中 {resolved.matchedPattern}</span> : null}
           </div>
-        </fieldset>
+        ) : null}
+      </section>
 
-        <HostListEditor
-          label="白名单"
-          value={allowedText}
-          onChange={setAllowedText}
-          onSave={setAllowedHosts}
-        />
-        <HostListEditor
-          label="黑名单（优先）"
-          value={hiddenText}
-          onChange={setHiddenText}
-          onSave={setHiddenHosts}
-        />
+      <section className="space-y-2 rounded bg-zinc-900 p-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-zinc-300">站点覆盖规则</h3>
+          <button
+            type="button"
+            title="添加站点规则"
+            aria-label="添加站点规则"
+            onClick={() => saveRules([...rules, { pattern: "", injectionMode: "inherit", assistant: "inherit" }])}
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          >
+            <Plus size={15} />
+          </button>
+        </div>
+        <p className="text-[11px] text-zinc-500">精确 hostname 优先；同等规则中靠后的优先。</p>
+
+        {rules.length === 0 ? (
+          <div className="py-3 text-center text-[11px] text-zinc-600">暂无站点覆盖规则</div>
+        ) : rules.map((rule, index) => {
+          const validation = normalizeHostPattern(rule.pattern);
+          return (
+            <div key={index} className="space-y-2 border-t border-zinc-800 pt-2 first:border-t-0 first:pt-0">
+              <div className="flex items-center gap-1">
+                <input
+                  aria-label={`站点规则 ${index + 1}`}
+                  value={rule.pattern}
+                  onChange={(event) => patchRule(index, { pattern: event.target.value })}
+                  onBlur={() => {
+                    if (validation.ok && validation.pattern !== rule.pattern) patchRule(index, { pattern: validation.pattern });
+                  }}
+                  placeholder="example.com 或 *.example.com"
+                  className="min-w-0 flex-1 rounded bg-zinc-950 px-2 py-1 font-mono text-[11px] text-zinc-200 outline-none ring-1 ring-zinc-700 focus:ring-blue-500"
+                />
+                <button type="button" title="上移" aria-label="上移规则" disabled={index === 0}
+                  onClick={() => moveRule(index, -1)} className="p-1 text-zinc-500 hover:text-zinc-200 disabled:opacity-25"><ChevronUp size={14} /></button>
+                <button type="button" title="下移" aria-label="下移规则" disabled={index === rules.length - 1}
+                  onClick={() => moveRule(index, 1)} className="p-1 text-zinc-500 hover:text-zinc-200 disabled:opacity-25"><ChevronDown size={14} /></button>
+                <button type="button" title="删除" aria-label="删除规则"
+                  onClick={() => saveRules(rules.filter((_, i) => i !== index))} className="p-1 text-zinc-500 hover:text-rose-400"><Trash2 size={14} /></button>
+              </div>
+              {!validation.ok && rule.pattern ? <p className="text-[11px] text-rose-400">{validation.error}</p> : null}
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1 text-zinc-500">
+                  <span className="block">注入模式</span>
+                  <select value={rule.injectionMode} onChange={(event) => patchRule(index, { injectionMode: event.target.value as SiteInjectionRule["injectionMode"] })}
+                    className="w-full rounded bg-zinc-950 px-2 py-1 text-zinc-300">
+                    <option value="inherit">继承默认</option>
+                    {MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-1 text-zinc-500">
+                  <span className="block">网页助手</span>
+                  <select value={rule.assistant} onChange={(event) => patchRule(index, { assistant: event.target.value as SiteInjectionRule["assistant"] })}
+                    className="w-full rounded bg-zinc-950 px-2 py-1 text-zinc-300">
+                    <option value="inherit">继承默认</option>
+                    <option value="enabled">开启</option>
+                    <option value="disabled">关闭</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          );
+        })}
       </section>
 
       <section className="space-y-1 rounded bg-zinc-900 p-3">
-        <h3 className="text-zinc-300">多 tab</h3>
-        <ul className="list-inside list-disc space-y-0.5 text-[11px] text-zinc-400">
-          <li>当前 tab 始终挂载</li>
-          <li>AI 用 <code className="text-zinc-300">openTab</code> 打开的新 tab 会自动 attach</li>
-          <li>AI 用 <code className="text-zinc-300">attachTab</code> 拉入其它 tab 需要人工审阅</li>
-          <li>已挂载 tab URL 变化时会标记，AI 下次调用前会提示</li>
-        </ul>
+        <h3 className="text-zinc-300">模式说明</h3>
+        <p className="text-[11px] text-zinc-500">禁用：仅 tab 信息与截图；只读：DOM 读取；操作：读取与交互；诊断：额外启用 MAIN-world console / 网络 / 弹窗录制。</p>
       </section>
     </div>
   );

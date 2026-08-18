@@ -6,7 +6,7 @@ function stubChrome() {
       getManifest: vi.fn(() => ({
         content_scripts: [
           {
-            js: ["src/content/index.ts", "src/content/element-capture.ts"]
+            js: ["src/content/bootstrap.ts"]
           }
         ]
       })),
@@ -14,7 +14,7 @@ function stubChrome() {
       onMessage: { addListener: vi.fn() }
     },
     tabs: {
-      get: vi.fn(),
+      get: vi.fn(async (tabId: number) => ({ id: tabId, url: "https://example.com/" })),
       query: vi.fn(),
       create: vi.fn(),
       sendMessage: vi.fn()
@@ -54,7 +54,7 @@ describe("elementCapture.start RPC", () => {
     expect(res).toEqual({ ok: true, data: null });
     expect(chrome.scripting.executeScript).toHaveBeenCalledWith({
       target: { tabId: 42 },
-      files: ["src/content/index.ts", "src/content/element-capture.ts"]
+      files: ["src/content/bootstrap.ts"]
     });
     expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
     expect(chrome.tabs.sendMessage).toHaveBeenLastCalledWith(42, {

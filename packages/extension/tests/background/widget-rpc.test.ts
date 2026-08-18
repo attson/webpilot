@@ -32,12 +32,25 @@ describe("widget RPCs", () => {
     );
   });
 
-  it("widget.markHostHidden appends host to hiddenHosts list", async () => {
-    (chrome.storage.local.get as any).mockResolvedValueOnce({ "atwebpilot.widget.hiddenHosts": ["foo.com"] });
+  it("widget.markHostHidden appends an assistant-disabled site rule", async () => {
+    (chrome.storage.local.get as any).mockResolvedValueOnce({
+      "atwebpilot.llm": {
+        siteInjectionRules: [
+          { pattern: "foo.com", injectionMode: "read", assistant: "inherit" }
+        ]
+      }
+    });
     const { dispatch } = await import("@/background/rpc-handlers");
     await dispatch({ type: "widget.markHostHidden", host: "bar.com" } as any);
     expect(chrome.storage.local.set).toHaveBeenCalledWith(
-      expect.objectContaining({ "atwebpilot.widget.hiddenHosts": ["foo.com", "bar.com"] })
+      {
+        "atwebpilot.llm": {
+          siteInjectionRules: [
+            { pattern: "foo.com", injectionMode: "read", assistant: "inherit" },
+            { pattern: "bar.com", injectionMode: "inherit", assistant: "disabled" }
+          ]
+        }
+      }
     );
   });
 });

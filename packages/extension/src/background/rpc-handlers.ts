@@ -26,6 +26,10 @@ import { classifyTool } from "@/sidepanel/chat/severity";
 import { registerInjectMain } from "./recorder/host";
 import { registerCaptureDeps } from "./bg-tools/capture";
 import { META_TOOLS, isMetaTool } from "./meta-tool-router";
+import { readPolicyForTab } from "@/injection-policy";
+import { injectionModeRank } from "@atwebpilot/shared";
+import type { InjectionMode } from "@atwebpilot/shared/types";
+import { DRAIN_SOURCE } from "@/content/recorder/drain";
 
 // Wired here rather than imported by the host to avoid a circular import.
 registerInjectMain((tabId, source, args) => injectMainWorld(tabId, source, args));
@@ -114,6 +118,10 @@ export async function dispatch(req: RpcRequest): Promise<Json> {
       })) as unknown as Json;
     case "scripting.injectMain": {
       if (req.tabId == null) throw new Error("scripting.injectMain: tabId missing");
+      const policy = await readPolicyForTab(req.tabId);
+      if (injectionModeRank(policy.injectionMode) < injectionModeRank("operate")) {
+        throw new Error(`站点注入策略为「${modeLabel(policy.injectionMode)}」，MAIN-world 执行需要「操作」或更高级别`);
+      }
       return (await injectMainWorld(req.tabId, req.source, req.args as Json)) as unknown as Json;
     }
     case "chat.session.start": {
@@ -153,6 +161,10 @@ export async function dispatch(req: RpcRequest): Promise<Json> {
       return (await fetchAsBase64(req.url)) as unknown as Json;
     }
     case "elementCapture.start": {
+      const policy = await readPolicyForTab(req.tabId);
+      if (injectionModeRank(policy.injectionMode) < injectionModeRank("operate")) {
+        throw new Error(`站点注入策略为「${modeLabel(policy.injectionMode)}」，元素选择需要「操作」或更高级别`);
+      }
       await startElementCapture(req.tabId);
       return null;
     }
@@ -184,11 +196,12 @@ export async function dispatch(req: RpcRequest): Promise<Json> {
       return null;
     }
     case "widget.markHostHidden": {
-      const KEY = "atwebpilot.widget.hiddenHosts";
+      const KEY = "atwebpilot.llm";
       const raw = (await chrome.storage.local.get([KEY]))[KEY];
-      const list = Array.isArray(raw) ? [...raw] : [];
-      if (!list.includes(req.host)) list.push(req.host);
-      await chrome.storage.local.set({ [KEY]: list });
+      const settings = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+      const rules = Array.isArray(settings.siteInjectionRules) ? [...settings.siteInjectionRules] : [];
+      rules.push({ pattern: req.host, injectionMode: "inherit", assistant: "disabled" });
+      await chrome.storage.local.set({ [KEY]: { ...settings, siteInjectionRules: rules } });
       return null;
     }
   }
@@ -210,6 +223,16 @@ export async function runOneStep(
   if (targetTabId !== rpcTabId && !attachedTabIds.includes(targetTabId)) {
     throw new Error(`tab ${targetTabId} not attached; call attachTab first or omit tabId`);
   }
+
+  const policy = await readPolicyForTab(targetTabId);
+  const requiredMode = minimumModeForStep(step);
+  if (injectionModeRank(policy.injectionMode) < injectionModeRank(requiredMode)) {
+    throw new Error(
+      `站点注入策略为「${modeLabel(policy.injectionMode)}」，${step.kind === "tool" ? step.tool : "runJS"} 需要「${modeLabel(requiredMode)}」或更高级别`
+    );
+  }
+
+  if (requiredMode === "diagnostic") await setRecorderPolicy(targetTabId, true);
 
   // Meta tools run here in the service worker. Dispatching before the content
   // script hop is what lets the coordinator / MCP EXEC path reach them; the
@@ -254,6 +277,39 @@ export async function runOneStep(
   }
   if (!res.ok) throw new Error(res.error);
   return res.data;
+}
+
+export async function setRecorderPolicy(tabId: number, enabled: boolean): Promise<void> {
+  if (!enabled) {
+    await injectMainWorld(tabId, DRAIN_SOURCE, { op: "uninstall" }).catch(() => undefined);
+    return;
+  }
+  const recorderEntry = chrome.runtime.getManifest().content_scripts?.[1];
+  const files = recorderEntry?.js;
+  if (!files?.length) throw new Error("recorder build entry missing from manifest");
+  await chrome.scripting.executeScript({ target: { tabId }, files, world: "MAIN" });
+}
+
+const READ_TOOLS = new Set([
+  "snapshotDOM", "querySelector", "querySelectorAll", "extractText", "extractImages",
+  "getValue", "extractFormState", "takeSnapshot", "getPageInfo", "findElements",
+  "createPageIndex", "searchPageIndex", "readPageBlock", "extractPageFields", "waitFor"
+]);
+const NO_INJECTION_TOOLS = new Set(["listTabs", "searchBookmarks", "searchHistory", "screenshot"]);
+const DIAGNOSTIC_TOOLS = new Set([
+  "consoleMessages", "networkRequests", "networkRequestDetail", "recorderConfig", "handleDialog"
+]);
+
+function minimumModeForStep(step: Step): InjectionMode {
+  if (step.kind === "js") return "operate";
+  if (NO_INJECTION_TOOLS.has(step.tool)) return "disabled";
+  if (DIAGNOSTIC_TOOLS.has(step.tool)) return "diagnostic";
+  if (READ_TOOLS.has(step.tool)) return "read";
+  return "operate";
+}
+
+function modeLabel(mode: InjectionMode): string {
+  return { disabled: "禁用", read: "只读", operate: "操作", diagnostic: "诊断" }[mode];
 }
 
 function isReceiverMissing(msg: string): boolean {

@@ -248,6 +248,14 @@ export type LlmProvider = "anthropic" | "openai";
 
 export type ContextPolicy = "auto" | "conservative" | "large" | "huge" | "custom";
 
+export type InjectionMode = "disabled" | "read" | "operate" | "diagnostic";
+
+export type SiteInjectionRule = {
+  pattern: string;
+  injectionMode: "inherit" | InjectionMode;
+  assistant: "inherit" | "enabled" | "disabled";
+};
+
 export type LlmSettings = {
   provider: LlmProvider;
   model: string;
@@ -285,10 +293,12 @@ export type LlmSettings = {
   selfHealEnabled: boolean;
   /** 自愈 LLM 调用的 max_tokens 上限。默认 4096。 */
   maxSelfHealOutputTokens: number;
-  /** Plan 28: 页内浮窗总闸;默认 true */
-  widgetEnabled: boolean;
-  /** 页内浮窗站点策略：全部站点（黑名单除外）或仅白名单。默认 all。 */
-  widgetSiteMode?: "all" | "allowlist";
+  /** 未命中站点规则时使用的注入能力。 */
+  defaultInjectionMode: InjectionMode;
+  /** 未命中站点规则时是否显示网页助手。 */
+  defaultAssistantEnabled: boolean;
+  /** 按 hostname 覆盖默认注入与助手策略，后写的同级规则优先。 */
+  siteInjectionRules: SiteInjectionRule[];
   /** 会话历史进入模型前的上下文压缩策略。默认 auto。 */
   contextPolicy?: ContextPolicy;
   /** contextPolicy=custom 时的压缩触发阈值，按序列化字符数估算。 */

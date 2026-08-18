@@ -36,7 +36,7 @@ describe("SectionLlm", () => {
       defaultChatMode: "compact",
       selfHealEnabled: true,
       maxSelfHealOutputTokens: 4096,
-      widgetEnabled: true,
+      defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [],
       contextPolicy: "auto",
       loaded: true,
       save: vi.fn(async (patch) => {

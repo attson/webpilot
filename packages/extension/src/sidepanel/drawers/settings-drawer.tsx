@@ -19,7 +19,7 @@ const TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: "mcp", label: "MCP" },
   { id: "permissions", label: "权限" },
   { id: "appearance", label: "外观" },
-  { id: "mounting", label: "浮窗 / 多 tab" },
+  { id: "mounting", label: "注入 / 助手" },
   { id: "coordinator", label: "Coordinator" },
   { id: "advanced", label: "高级" },
 ];

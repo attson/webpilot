@@ -131,11 +131,11 @@ describe("pairing relay", () => {
     expect(host.shadowRoot).toBeNull();
   });
 
-  it("reports a rejection when the worker errors", async () => {
+  it("reports a connection error separately from user denial", async () => {
     reply = { error: "boom" };
     pairMessage();
     await settle();
-    expect(results()[0]).toMatchObject({ ok: false });
+    expect(results()[0]).toMatchObject({ ok: false, reason: "connection_error" });
   });
 });
 

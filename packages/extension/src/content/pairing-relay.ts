@@ -18,8 +18,8 @@ import {
 
 type WorkerReply = { decision: PairingDecision } | { error: string };
 
-export function installPairingRelay(): void {
-  window.addEventListener("message", (ev) => {
+export function installPairingRelay(): () => void {
+  const listener = (ev: MessageEvent) => {
     // Only same-window messages: a cross-origin iframe posting up must not be
     // able to start a pairing on the top frame's behalf.
     if (ev.source !== window) return;
@@ -32,12 +32,14 @@ export function installPairingRelay(): void {
     if (!payload) return;
 
     void handle(payload);
-  });
+  };
+  window.addEventListener("message", listener);
 
   // The page's inline script runs while the document is parsing; this content
   // script runs at document_idle. Whoever speaks first would otherwise be
   // talking to nobody, so the relay announces itself and the page answers.
   window.postMessage({ source: PAIR_READY_SOURCE }, "*");
+  return () => window.removeEventListener("message", listener);
 }
 
 async function handle(payload: PairPayload): Promise<void> {
@@ -47,7 +49,7 @@ async function handle(payload: PairPayload): Promise<void> {
   })) as WorkerReply | undefined;
 
   if (!reply || "error" in reply) {
-    post({ ok: false });
+    post({ ok: false, reason: "connection_error" });
     return;
   }
 
@@ -63,10 +65,10 @@ async function handle(payload: PairPayload): Promise<void> {
     approved,
     payload
   });
-  post({ ok: approved, trusted: false });
+  post({ ok: approved, trusted: false, reason: approved ? undefined : "denied" });
 }
 
-function post(result: { ok: boolean; trusted?: boolean }): void {
+function post(result: { ok: boolean; trusted?: boolean; reason?: "denied" | "connection_error" }): void {
   window.postMessage({ source: PAIR_RESULT_SOURCE, ...result }, "*");
 }
 

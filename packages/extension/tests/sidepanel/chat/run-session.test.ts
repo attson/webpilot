@@ -65,7 +65,7 @@ describe("runChatSession", () => {
         url: "u",
       },
       initialMessages: [{ role: "user", content: "previous goal" }],
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [] },
       systemPrompt: "sys",
       tools: [],
       permissionMode: "default",
@@ -104,7 +104,7 @@ describe("runChatSession", () => {
       approver,
       rpc,
       input: { userPrompt: "go", tabId: 7, url: "https://x/" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [] },
       systemPrompt: "sys",
       tools: [],
       permissionMode: "default"
@@ -138,7 +138,7 @@ describe("runChatSession", () => {
         finalizeSession: vi.fn().mockResolvedValue(null)
       },
       input: { userPrompt: "x", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [] },
       systemPrompt: "sys",
       tools: [],
       permissionMode: "default"
@@ -182,7 +182,7 @@ describe("runChatSession", () => {
         finalizeSession: vi.fn().mockResolvedValue(null)
       },
       input: { userPrompt: "x", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [] },
       systemPrompt: "sys",
       tools: [],
       permissionMode: "default"
@@ -226,7 +226,7 @@ describe("runChatSession", () => {
       approver,
       rpc,
       input: { userPrompt: "read", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 5, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [] },
       systemPrompt: "sys",
       tools: [],
       permissionMode: "default"
@@ -283,7 +283,7 @@ describe("runChatSession", () => {
         finalizeSession: vi.fn().mockResolvedValue(null)
       },
       input: { userPrompt: "collect", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 6, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 6, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [] },
       systemPrompt: "sys",
       tools: [],
       permissionMode: "default"
@@ -337,7 +337,7 @@ describe("runChatSession", () => {
         apiKey: "k",
         apiKeyMode: "session",
         maxRounds: 5,
-        trustedDangerTools: ["submitForm"], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true,
+        trustedDangerTools: ["submitForm"], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [],
       },
       systemPrompt: "sys",
       tools: [],
@@ -394,7 +394,7 @@ describe("runChatSession", () => {
           apiKey: "k",
           apiKeyMode: "session",
           maxRounds: 5,
-          trustedDangerTools: ["listTabs"], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true,
+          trustedDangerTools: ["listTabs"], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [],
         },
         systemPrompt: "sys",
         tools: [],
@@ -446,7 +446,7 @@ describe("runChatSession", () => {
           apiKey: "k",
           apiKeyMode: "session",
           maxRounds: 5,
-          trustedDangerTools: ["openTab"], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true,
+          trustedDangerTools: ["openTab"], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [],
         },
         systemPrompt: "sys",
         tools: [],
@@ -473,7 +473,7 @@ describe("runChatSession", () => {
       theme: "dark" as const,
       selfHealEnabled: true,
       maxSelfHealOutputTokens: 4096,
-      widgetEnabled: true,
+      defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [],
     };
 
     it("nudges when the model stops with text-only, then continues when it resumes calling tools", async () => {
@@ -773,7 +773,7 @@ describe("runChatSession", () => {
         theme: "dark",
         selfHealEnabled: true,
         maxSelfHealOutputTokens: 4096,
-        widgetEnabled: true
+        defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: []
       },
       systemPrompt: "sys",
       tools: [],
@@ -813,7 +813,7 @@ describe("runChatSession", () => {
         finalizeSession: vi.fn().mockResolvedValue(null)
       },
       input: { userPrompt: "x", tabId: 1, url: "u" },
-      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 2, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true },
+      settings: { provider: "anthropic", model: "m", apiKey: "k", apiKeyMode: "session", maxRounds: 2, trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [] },
       systemPrompt: "sys",
       tools: [],
       permissionMode: "default"

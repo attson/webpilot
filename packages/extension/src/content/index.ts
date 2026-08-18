@@ -2,14 +2,9 @@ import { ContentRequest } from "@atwebpilot/shared/messages";
 import type { Json } from "@atwebpilot/shared/types";
 import { injectMain } from "./inject-main";
 import { callTool } from "./tools";
-import { installPairingRelay } from "./pairing-relay";
+let installed = false;
 
-console.info("[atwebpilot] content script loaded on", location.href);
-
-// Listens for the MCP server's pairing page; inert on every other page.
-installPairingRelay();
-
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+const listener: Parameters<typeof chrome.runtime.onMessage.addListener>[0] = (msg, _sender, sendResponse) => {
   const parsed = ContentRequest.safeParse(msg);
   if (!parsed.success) {
     // Tag the rejection so the caller surfaces an actionable error instead of
@@ -28,7 +23,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     .then((data) => sendResponse({ ok: true, data }))
     .catch((e) => sendResponse({ ok: false, error: e instanceof Error ? e.message : String(e) }));
   return true;
-});
+};
+
+export function installContentRunner(): () => void {
+  if (installed) return () => {};
+  installed = true;
+  chrome.runtime.onMessage.addListener(listener);
+  return () => {
+    if (!installed) return;
+    chrome.runtime.onMessage.removeListener(listener);
+    installed = false;
+  };
+}
 
 async function handle(req: import("@atwebpilot/shared/messages").ContentRequest): Promise<Json> {
   if (req.type === "content.runStep") {

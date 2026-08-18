@@ -43,6 +43,12 @@ describe("renderPairPage", () => {
   it("tells the user what to do when nothing responds", () => {
     expect(renderPairPage(payload)).toContain("扩展");
   });
+
+  it("distinguishes connection failure from explicit denial", () => {
+    const html = renderPairPage(payload);
+    expect(html).toContain('e.data.reason === "denied"');
+    expect(html).toContain("连接扩展失败");
+  });
 });
 
 describe("renderPairPage — install ordering", () => {

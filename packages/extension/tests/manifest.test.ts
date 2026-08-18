@@ -15,11 +15,12 @@ describe("manifest", () => {
   });
 });
 
-type ContentScript = { js?: string[]; world?: string; run_at?: string };
+type ContentScript = { js?: string[]; world?: string; run_at?: string; matches?: string[] };
 const m = manifest as {
   permissions?: string[];
   optional_permissions?: string[];
   content_scripts?: ContentScript[];
+  web_accessible_resources?: Array<{ resources: string[]; matches: string[] }>;
 };
 
 describe("Plan 32 — recorder and CDP opt-in", () => {
@@ -35,5 +36,18 @@ describe("Plan 32 — recorder and CDP opt-in", () => {
     expect(entry).toBeDefined();
     expect(entry!.world).toBe("MAIN");
     expect(entry!.run_at).toBe("document_start");
+    expect(entry!.matches).not.toContain("<all_urls>");
+  });
+
+  it("loads only the inert bootstrap on ordinary pages", () => {
+    const entry = (m.content_scripts ?? []).find((e) => e.matches?.includes("<all_urls>"));
+    expect(entry?.js).toEqual(["src/content/bootstrap.ts"]);
+  });
+
+  it("exposes the recorder chunk for policy-gated MAIN-world dynamic import", () => {
+    const entry = (m.web_accessible_resources ?? []).find((item) =>
+      item.resources.includes("assets/main-world.ts-*.js")
+    );
+    expect(entry?.matches).toContain("<all_urls>");
   });
 });

@@ -72,7 +72,7 @@ function reconcile(): void {
   setActive(fresh && me);
 }
 
-async function init(): Promise<void> {
+export async function installBreathingBorder(): Promise<() => void> {
   try {
     const tabResp = await chrome.runtime.sendMessage({ type: "atwebpilot.getTabId" });
     if (tabResp && typeof tabResp.tabId === "number") currentTabId = tabResp.tabId;
@@ -90,7 +90,7 @@ async function init(): Promise<void> {
     // ignore
   }
 
-  chrome.storage.onChanged.addListener((changes, area) => {
+  const listener: Parameters<typeof chrome.storage.onChanged.addListener>[0] = (changes, area) => {
     if (area !== "local") return;
     if (changes[HEARTBEAT_KEY]) {
       lastHeartbeat = (changes[HEARTBEAT_KEY].newValue as Heartbeat) ?? null;
@@ -102,10 +102,15 @@ async function init(): Promise<void> {
       if (!userEnabled) removeStyle();
       reconcile();
     }
-  });
+  };
+  chrome.storage.onChanged.addListener(listener);
 
   reconcile();
-  setInterval(reconcile, 2_500);
+  const timer = window.setInterval(reconcile, 2_500);
+  return () => {
+    window.clearInterval(timer);
+    chrome.storage.onChanged.removeListener(listener);
+    setActive(false);
+    removeStyle();
+  };
 }
-
-void init();

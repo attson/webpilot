@@ -123,10 +123,18 @@ function start(): void {
   };
 }
 
-chrome.runtime.onMessage.addListener((msg) => {
+const listener: Parameters<typeof chrome.runtime.onMessage.addListener>[0] = (msg) => {
   if (msg && typeof msg === "object") {
     if ((msg as { type?: string }).type === "atwebpilot.startCapture") start();
     if ((msg as { type?: string }).type === "atwebpilot.stopCapture") stop();
   }
   return false;
-});
+};
+
+export function installElementCapture(): () => void {
+  chrome.runtime.onMessage.addListener(listener);
+  return () => {
+    stop();
+    chrome.runtime.onMessage.removeListener(listener);
+  };
+}

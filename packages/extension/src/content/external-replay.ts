@@ -7,7 +7,7 @@
  * a review modal — never auto-executed.
  */
 
-window.addEventListener("message", (event) => {
+const listener = (event: MessageEvent) => {
   const data = event.data as unknown;
   if (!data || typeof data !== "object") return;
   const m = data as { source?: string; payload?: unknown };
@@ -19,4 +19,9 @@ window.addEventListener("message", (event) => {
       sourceUrl: location.href,
     })
     .catch(() => undefined);
-});
+};
+
+export function installExternalReplay(): () => void {
+  window.addEventListener("message", listener);
+  return () => window.removeEventListener("message", listener);
+}

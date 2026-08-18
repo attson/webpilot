@@ -60,7 +60,7 @@ describe("SaveAsToolDialog", () => {
             apiKey: "sk-test",
             apiKeyMode: "session",
             maxRounds: 10,
-            trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, widgetEnabled: true,
+            trustedDangerTools: [], defaultPermissionMode: "default", theme: "dark", selfHealEnabled: true, maxSelfHealOutputTokens: 4096, defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [],
           }}
           onClose={() => undefined}
           onSaved={() => undefined}

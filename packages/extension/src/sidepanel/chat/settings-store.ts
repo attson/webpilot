@@ -25,8 +25,9 @@ const DEFAULTS: LlmSettings = {
   defaultChatMode: "compact",
   selfHealEnabled: true,
   maxSelfHealOutputTokens: 4096,
-  widgetEnabled: true,
-  widgetSiteMode: "all",
+  defaultInjectionMode: "operate",
+  defaultAssistantEnabled: true,
+  siteInjectionRules: [],
   contextPolicy: "auto"
 };
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LlmSettings } from "../src/types";
 
-describe("LlmSettings.widgetEnabled", () => {
+describe("LlmSettings injection defaults", () => {
   it("is a boolean field on LlmSettings", () => {
     const s: LlmSettings = {
       provider: "anthropic",
@@ -16,8 +16,11 @@ describe("LlmSettings.widgetEnabled", () => {
       defaultChatMode: "compact",
       selfHealEnabled: true,
       maxSelfHealOutputTokens: 4096,
-      widgetEnabled: true
+      defaultInjectionMode: "operate",
+      defaultAssistantEnabled: true,
+      siteInjectionRules: []
     };
-    expect(s.widgetEnabled).toBe(true);
+    expect(s.defaultInjectionMode).toBe("operate");
+    expect(s.defaultAssistantEnabled).toBe(true);
   });
 });

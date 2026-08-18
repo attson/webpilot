@@ -1,5 +1,5 @@
 import { RpcRequest as RpcRequestSchema } from "@atwebpilot/shared/messages";
-import { handleRpc } from "./rpc-handlers";
+import { handleRpc, setRecorderPolicy } from "./rpc-handlers";
 import { installTabWatcher } from "./tab-watcher";
 import { installTabCloseArchiver } from "./tab-close-archiver";
 import {
@@ -24,6 +24,7 @@ import { TabOwnership } from "./tab-ownership";
 import { installTabsBroadcast } from "./tabs-broadcast";
 import { approve, decidePairing } from "./pairing-host";
 import type { PairPayload } from "@atwebpilot/shared/pairing";
+import { readPolicyForTab } from "@/injection-policy";
 
 // Idempotent; only takes effect once the user grants the optional debugger
 // permission and enables the CDP backend in settings.
@@ -64,6 +65,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && typeof msg === "object" && (msg as { type?: string }).type === "atwebpilot.getTabId") {
     sendResponse({ tabId: sender.tab?.id ?? null });
     return false;
+  }
+  if (msg && typeof msg === "object" && (msg as { type?: string }).type === "atwebpilot.recorderPolicy") {
+    const tabId = sender.tab?.id;
+    if (tabId == null) {
+      sendResponse({ ok: false, error: "tab missing" });
+      return false;
+    }
+    void readPolicyForTab(tabId)
+      .then((policy) => setRecorderPolicy(
+        tabId,
+        (msg as { enabled?: boolean }).enabled === true && policy.injectionMode === "diagnostic"
+      ))
+      .then(() => sendResponse({ ok: true }))
+      .catch((e: unknown) => sendResponse({ ok: false, error: String(e) }));
+    return true;
   }
   if (
     msg &&

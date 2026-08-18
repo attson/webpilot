@@ -25,7 +25,7 @@ describe("SettingsDrawer tabs", () => {
       theme: "dark",
       selfHealEnabled: true,
       maxSelfHealOutputTokens: 4096,
-      widgetEnabled: true,
+      defaultInjectionMode: "operate" as const, defaultAssistantEnabled: true, siteInjectionRules: [],
       contextPolicy: "auto",
       save: vi.fn(async (patch) => useSettings.setState(patch)),
     } as Partial<ReturnType<typeof useSettings.getState>>);

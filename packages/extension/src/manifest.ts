@@ -25,30 +25,24 @@ export default defineManifest({
   content_scripts: [
     {
       matches: ["<all_urls>"],
-      js: [
-        "src/content/index.ts",
-        "src/content/breathing-border.ts",
-        "src/content/element-capture.ts",
-        "src/content/external-replay.ts",
-        "src/content/pairing-relay.ts",
-        "src/content/widget/mount.ts"
-      ],
+      js: ["src/content/bootstrap.ts"],
       run_at: "document_idle"
     },
     {
-      // MAIN world so the recorder can see the page's own console / fetch /
-      // XMLHttpRequest / alert. Declared statically rather than registered
-      // dynamically because crxjs copies web_accessible_resources verbatim
-      // without transpiling, so a dynamically-registered .ts never runs.
-      // Consequence: the settings master switch means "uninstall the patches
-      // and stop draining", not "the script never loads".
-      matches: ["<all_urls>"],
+      // Keeps the recorder as a CRX/Vite build entry without loading it on
+      // ordinary pages. Diagnostic policy injects this generated file via BG.
+      matches: ["http://127.0.0.1/__atwebpilot_recorder__/*"],
       js: ["src/content/recorder/main-world.ts"],
       world: "MAIN",
       run_at: "document_start"
     }
   ],
   web_accessible_resources: [
-    { resources: ["src/sidepanel/index.html"], matches: ["<all_urls>"] }
+    {
+      // The MAIN-world loader dynamically imports this built chunk. Making it
+      // readable does not execute it; policy-gated scripting injection does.
+      resources: ["src/sidepanel/index.html", "assets/main-world.ts-*.js"],
+      matches: ["<all_urls>"]
+    }
   ]
 });

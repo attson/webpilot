@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { handleRpc } from "@/background/rpc-handlers";
+import { handleRpc, setRecorderPolicy } from "@/background/rpc-handlers";
 import { _resetDBForTests } from "@/background/storage/db";
 import { saveDraft } from "@/background/storage/tools";
 
@@ -49,6 +49,51 @@ describe("rpc handlers tool kinds", () => {
   });
 });
 
+describe("recorder policy", () => {
+  it("injects the recorder build entry in the MAIN world", async () => {
+    const executeScript = vi.fn().mockResolvedValue([]);
+    vi.stubGlobal("chrome", {
+      runtime: {
+        getManifest: vi.fn(() => ({
+          content_scripts: [
+            { js: ["assets/bootstrap.js"] },
+            { js: ["assets/recorder.js"] }
+          ]
+        }))
+      },
+      scripting: { executeScript }
+    });
+
+    await setRecorderPolicy(7, true);
+
+    expect(executeScript).toHaveBeenCalledWith({
+      target: { tabId: 7 },
+      files: ["assets/recorder.js"],
+      world: "MAIN"
+    });
+  });
+
+  it("uninstalls recorder patches when diagnostic mode is disabled", async () => {
+    const executeScript = vi.fn().mockImplementation(async (details: {
+      func?: (source: string, args: unknown) => Promise<unknown>;
+      args?: unknown[];
+      world?: string;
+    }) => {
+      const func = details.func as ((source: string, args: unknown) => Promise<unknown>) | undefined;
+      expect(details.world).toBe("MAIN");
+      expect(details.args?.[1]).toEqual({ op: "uninstall" });
+      expect(String(details.args?.[0])).toContain("rec.uninstall()");
+      expect(func).toBeTypeOf("function");
+      return [{ result: { ok: true } }];
+    });
+    vi.stubGlobal("chrome", { scripting: { executeScript } });
+
+    await setRecorderPolicy(8, false);
+
+    expect(executeScript).toHaveBeenCalledOnce();
+  });
+});
+
 describe("tabs.list", () => {
   it("returns tabs across windows, excluding chrome:// and incognito", async () => {
     vi.stubGlobal("chrome", {
@@ -75,7 +120,7 @@ describe("tabs.list", () => {
   it("filters by windowId when provided", async () => {
     vi.stubGlobal("chrome", {
       tabs: {
-        get: vi.fn(),
+        get: vi.fn(async (tabId: number) => ({ id: tabId, url: "https://example.com/" })),
         sendMessage: vi.fn(),
         query: vi.fn(async (q: chrome.tabs.QueryInfo) => {
           const all = [
@@ -98,7 +143,7 @@ describe("tabs.open", () => {
     const created: unknown[] = [];
     vi.stubGlobal("chrome", {
       tabs: {
-        get: vi.fn(),
+        get: vi.fn(async (tabId: number) => ({ id: tabId, url: "https://example.com/" })),
         sendMessage: vi.fn(),
         create: vi.fn(async (info: chrome.tabs.CreateProperties) => {
           created.push(info);
@@ -145,7 +190,7 @@ describe("runs.runOneStep tabId gate", () => {
     const sends: Array<{ tabId: number }> = [];
     vi.stubGlobal("chrome", {
       tabs: {
-        get: vi.fn(),
+        get: vi.fn(async (tabId: number) => ({ id: tabId, url: "https://example.com/" })),
         sendMessage: vi.fn(async (tabId: number) => {
           sends.push({ tabId });
           return { ok: true, data: null };
@@ -166,7 +211,7 @@ describe("runs.runOneStep tabId gate", () => {
     const sends: Array<{ tabId: number }> = [];
     vi.stubGlobal("chrome", {
       tabs: {
-        get: vi.fn(),
+        get: vi.fn(async (tabId: number) => ({ id: tabId, url: "https://example.com/" })),
         sendMessage: vi.fn(async (tabId: number) => {
           sends.push({ tabId });
           return { ok: true, data: null };
@@ -187,7 +232,7 @@ describe("runs.runOneStep tabId gate", () => {
     const sends: Array<{ tabId: number }> = [];
     vi.stubGlobal("chrome", {
       tabs: {
-        get: vi.fn(),
+        get: vi.fn(async (tabId: number) => ({ id: tabId, url: "https://example.com/" })),
         sendMessage: vi.fn(async (tabId: number) => {
           sends.push({ tabId });
           return { ok: true, data: null };
@@ -208,7 +253,7 @@ describe("runs.runOneStep tabId gate", () => {
     const sends: Array<{ tabId: number }> = [];
     vi.stubGlobal("chrome", {
       tabs: {
-        get: vi.fn(),
+        get: vi.fn(async (tabId: number) => ({ id: tabId, url: "https://example.com/" })),
         sendMessage: vi.fn(async (tabId: number) => {
           sends.push({ tabId });
           return { ok: true, data: null };
@@ -222,5 +267,60 @@ describe("runs.runOneStep tabId gate", () => {
       attachedTabIds: [2]
     });
     expect(sends[0].tabId).toBe(1);
+  });
+});
+
+describe("runs.runOneStep injection policy gate", () => {
+  function policyChrome(mode: string) {
+    return {
+      storage: { local: { get: vi.fn(async () => ({
+        "atwebpilot.llm": {
+          defaultInjectionMode: mode,
+          defaultAssistantEnabled: false,
+          siteInjectionRules: []
+        }
+      })) } },
+      tabs: {
+        get: vi.fn(async (tabId: number) => ({ id: tabId, url: "https://example.com/" })),
+        sendMessage: vi.fn(async () => ({ ok: true, data: null }))
+      }
+    };
+  }
+
+  it("allows DOM reads in read mode", async () => {
+    vi.stubGlobal("chrome", policyChrome("read"));
+    const res = await handleRpc({
+      type: "runs.runOneStep",
+      step: { kind: "tool", tool: "snapshotDOM", args: {} },
+      tabId: 1,
+      attachedTabIds: []
+    });
+    expect(res.ok).toBe(true);
+  });
+
+  it("rejects page actions in read mode", async () => {
+    const fake = policyChrome("read");
+    vi.stubGlobal("chrome", fake);
+    const res = await handleRpc({
+      type: "runs.runOneStep",
+      step: { kind: "tool", tool: "click", args: { selector: "button" } },
+      tabId: 1,
+      attachedTabIds: []
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toContain("需要「操作」");
+    expect(fake.tabs.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("rejects recorder reads below diagnostic mode", async () => {
+    vi.stubGlobal("chrome", policyChrome("operate"));
+    const res = await handleRpc({
+      type: "runs.runOneStep",
+      step: { kind: "tool", tool: "consoleMessages", args: {} },
+      tabId: 1,
+      attachedTabIds: []
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toContain("需要「诊断」");
   });
 });
