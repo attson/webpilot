@@ -13,3 +13,6 @@ coverage
 docs-site/node_modules/
 docs-site/.vitepress/dist/
 docs-site/.vitepress/cache/
+
+# 由 `pnpm -F @atwebpilot/extension build:demo` 生成
+docs-site/public/demo/
