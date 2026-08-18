@@ -1,14 +1,14 @@
-# MCP Bridge — Claude Code 驱动浏览器
+# MCP Bridge — Codex / Claude Code 驱动浏览器
 
 ## 概念
 
 MCP Bridge = stdio MCP server + 本地 Coordinator，两者打包在 `@attson/atwebpilot-mcp`。装了之后：
 
 ```
-Claude Code ─(MCP stdio)─→ atwebpilot-mcp ─(WS worker)─→ Chrome 扩展 ─→ 网页
+Codex / Claude Code ─(MCP stdio)─→ atwebpilot-mcp ─(WS worker)─→ Chrome 扩展 ─→ 网页
 ```
 
-Claude Code 里就能调 `browser_*` 系列工具在真实网页上读、写、采。
+Codex 或 Claude Code 里就能调 `browser_*` 系列工具在真实网页上读、写、采。
 
 值得先知道方向：**MCP server 进程是 WS 服务端，扩展是客户端**。MV3 的 service worker 没有
 监听端口的能力，所以只能由扩展主动拨号。这也是配对页存在的原因 —— 服务端没法自己找到浏览器，
@@ -16,9 +16,22 @@ Claude Code 里就能调 `browser_*` 系列工具在真实网页上读、写、�
 
 ## 安装
 
+### Codex CLI
+
+```bash
+codex mcp add atwebpilot -- npx -y @attson/atwebpilot-mcp
+```
+
+命令会把 server 加到 Codex 的用户级 MCP 配置。新开一个 Codex 会话后，可用
+`codex mcp get atwebpilot` 检查配置。
+
+### Claude Code
+
 ```bash
 claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 ```
+
+### 连接扩展
 
 然后照常装扩展。**不用手填端口**：
 
@@ -37,7 +50,7 @@ claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 | `ATWEBPILOT_WS_TOKEN` | 要求扩展带 `bearer.<token>` 子协议 |
 | `ATWEBPILOT_MCP_TOOLS` | `full`（默认，54 个）或 `parity`（只出对标 playwright-ext 的子集，省上下文） |
 
-## Claude Code 可用的 MCP tools
+## Codex / Claude Code 可用的 MCP tools
 
 | 工具 | 用途 |
 |---|---|

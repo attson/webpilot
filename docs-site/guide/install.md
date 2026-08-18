@@ -10,14 +10,22 @@
 4. 点「加载已解压的扩展程序」→ 选择解压出来的 `dist/` 目录
 5. 任意页面右上角点扩展图标 → 侧边面板打开
 
-## 方式 2：加 MCP 让 Claude Code 驱动浏览器
+## 方式 2：加 MCP 让 Codex / Claude Code 驱动浏览器
+
+Codex：
+
+```bash
+codex mcp add atwebpilot -- npx -y @attson/atwebpilot-mcp
+```
+
+Claude Code：
 
 ```bash
 claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 ```
 
 再照方式 1 装扩展。**不需要手填端口** —— AI 第一次要操作网页时会自动弹出配对页，
-点「允许」即接入；之后本机的会话都免确认，多个 Claude Code 会话也可以同时接入同一个浏览器。
+点「允许」即接入；之后本机的会话都免确认，多个 Codex / Claude Code 会话也可以同时接入同一个浏览器。
 
 详见 [MCP Bridge](/advanced/mcp-bridge) 与 [多会话配对](/advanced/pairing)。
 

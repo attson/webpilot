@@ -9,7 +9,7 @@
 
 **浏览器侧边栏里的 AI 网页助手**  ·  OPEN SOURCE [TYPESCRIPT · REACT]
 
-在你正在浏览的网页上读、写、采:总结与翻译、填表与提交、抓图片评论和商品参数。任意一段成功对话都能固化成按 URL 匹配的可重放工具,网站小改动时自动自愈。也可以作为 MCP server 交给 Claude Code 驱动。
+在你正在浏览的网页上读、写、采:总结与翻译、填表与提交、抓图片评论和商品参数。任意一段成功对话都能固化成按 URL 匹配的可重放工具,网站小改动时自动自愈。也可以作为 MCP server 交给 Codex 或 Claude Code 驱动。
 
 ---
 
@@ -25,7 +25,10 @@
 ```bash
 # 只用扩展:到 Releases 下载 zip,在 chrome://extensions 加载已解压的扩展。
 
-# 交给 Claude Code 驱动:
+# 交给 Codex 驱动:
+codex mcp add atwebpilot -- npx -y @attson/atwebpilot-mcp
+
+# 或交给 Claude Code 驱动:
 claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 
 # 源码调试:

@@ -29,6 +29,10 @@ features:
     details: 任意成功对话一键存成 URL 模式匹配的可重放工具；下次访问一键跑
 ---
 
+<script setup>
+import { withBase } from 'vitepress';
+</script>
+
 <div class="showcase">
 
 ## 看它跑起来
@@ -54,19 +58,19 @@ features:
 ## 三种用法
 
 <div class="usage-grid">
-  <a href="/guide/install" class="usage-card">
+  <a :href="withBase('/guide/install')" class="usage-card">
     <div class="usage-icon" style="background:#065f46">🧩</div>
     <h3>Chrome 扩展</h3>
     <p>直接在浏览器侧边面板对话。装 zip 即用；每个 tab 独立会话。</p>
     <span class="usage-link">安装扩展 →</span>
   </a>
-  <a href="/advanced/mcp-bridge" class="usage-card">
+  <a :href="withBase('/advanced/mcp-bridge')" class="usage-card">
     <div class="usage-icon" style="background:#7c2d12">🔌</div>
-    <h3>MCP + Claude Code</h3>
-    <p>把浏览器当 tool 挂给 Claude Code；一句话让 Claude 在真实网页跑。</p>
+    <h3>MCP + Codex / Claude Code</h3>
+    <p>把浏览器作为 MCP 工具交给编码 agent；一句话让它在真实网页跑。</p>
     <span class="usage-link">配置 MCP →</span>
   </a>
-  <a href="/advanced/coordinator" class="usage-card">
+  <a :href="withBase('/advanced/coordinator')" class="usage-card">
     <div class="usage-icon" style="background:#1e3a8a">🌐</div>
     <h3>Coordinator 远程</h3>
     <p>服务器批量派发工具步；跨机器采集或远程回归测试。</p>

@@ -6,7 +6,7 @@ Coordinator 是一个 WebSocket 服务器，扩展作为 client 连它。连上�
 
 **opt-in 场景**：
 - 从服务器批量控制多台浏览器（跨机器采集）
-- Claude Code 通过本地 MCP server → 本地 Coordinator → 浏览器扩展（见 [MCP Bridge](/advanced/mcp-bridge)）
+- Codex / Claude Code 通过本地 MCP server → 本地 Coordinator → 浏览器扩展（见 [MCP Bridge](/advanced/mcp-bridge)）
 - 远程测试你的工具库
 
 ## 协议

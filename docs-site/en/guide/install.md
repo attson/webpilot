@@ -10,7 +10,15 @@ Three ways to use it.
 4. Click "Load unpacked" → select the unzipped `dist/` directory
 5. Click the extension icon on any page → side panel opens
 
-## Option 2: Add MCP so Claude Code can drive the browser
+## Option 2: Add MCP so Codex or Claude Code can drive the browser
+
+Codex:
+
+```bash
+codex mcp add atwebpilot -- npx -y @attson/atwebpilot-mcp
+```
+
+Claude Code:
 
 ```bash
 claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
@@ -18,7 +26,7 @@ claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 
 Then install the extension as in Option 1. **No port to fill in** — the first time the AI
 needs to touch a page, a pairing page opens; click Allow and it connects. Later sessions on
-the same machine connect silently, and several Claude Code sessions can share one browser.
+the same machine connect silently, and several Codex or Claude Code sessions can share one browser.
 
 See [MCP Bridge](/en/advanced/mcp-bridge).
 

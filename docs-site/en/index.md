@@ -32,6 +32,10 @@ features:
     details: Freeze any successful conversation into a URL-pattern-matched replayable tool
 ---
 
+<script setup>
+import { withBase } from 'vitepress';
+</script>
+
 <div class="showcase">
 
 ## See it in action
@@ -57,19 +61,19 @@ features:
 ## Three ways to use it
 
 <div class="usage-grid">
-  <a href="/en/guide/install" class="usage-card">
+  <a :href="withBase('/en/guide/install')" class="usage-card">
     <div class="usage-icon" style="background:#065f46">🧩</div>
     <h3>Chrome extension</h3>
     <p>Chat directly in the browser side panel. Load the zip; each tab gets its own session.</p>
     <span class="usage-link">Install →</span>
   </a>
-  <a href="/en/advanced/mcp-bridge" class="usage-card">
+  <a :href="withBase('/en/advanced/mcp-bridge')" class="usage-card">
     <div class="usage-icon" style="background:#7c2d12">🔌</div>
-    <h3>MCP + Claude Code</h3>
-    <p>Expose the browser as a tool to Claude Code; let Claude drive real web pages.</p>
+    <h3>MCP + Codex / Claude Code</h3>
+    <p>Expose the browser as an MCP tool to your coding agent and drive real web pages.</p>
     <span class="usage-link">Configure MCP →</span>
   </a>
-  <a href="/en/advanced/coordinator" class="usage-card">
+  <a :href="withBase('/en/advanced/coordinator')" class="usage-card">
     <div class="usage-icon" style="background:#1e3a8a">🌐</div>
     <h3>Coordinator (remote)</h3>
     <p>Dispatch tool steps from a server; batch scraping across machines or remote regression testing.</p>

@@ -1,8 +1,14 @@
 # @attson/atwebpilot-mcp
 
-让 Claude Code 经一个本地 ws 中继驱动 atwebpilot 浏览器扩展操作网页（读 / 写 / 采）。
+让 Codex 或 Claude Code 经一个本地 ws 中继驱动 atwebpilot 浏览器扩展操作网页（读 / 写 / 采）。
 
 ## 给用户：一行装
+
+Codex：
+
+    codex mcp add atwebpilot -- npx -y @attson/atwebpilot-mcp
+
+Claude Code：
 
     claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 
@@ -15,7 +21,7 @@
 3. 你在浏览器里点「允许」，扩展即接入，重试那次调用即可。
 4. 之后本机的会话都免确认（信任是安装级的）；端口能复用时连配对页都不会弹。
 
-多个 Claude Code 会话可以同时接入同一个浏览器，各自一条连接。可在扩展设置 →
+多个 Codex / Claude Code 会话可以同时接入同一个浏览器，各自一条连接。可在扩展设置 →
 Coordinator 查看已接入的会话、单独断开，或撤销信任。
 
 可选环境变量：
