@@ -33,9 +33,17 @@ function findInput(doc: Document): HTMLTextAreaElement | HTMLInputElement | null
   return doc.querySelector<HTMLTextAreaElement>("textarea") ?? null;
 }
 
+/**
+ * The real send button is an icon with `aria-label="发送"` and no matching text
+ * content, so the label check has to come first — matching on textContent alone
+ * finds nothing and the demo sits idle.
+ */
 function findSend(doc: Document): HTMLButtonElement | null {
-  const buttons = [...doc.querySelectorAll<HTMLButtonElement>("button")];
+  const buttons = [...doc.querySelectorAll<HTMLButtonElement>("button")].filter(
+    (b) => !b.disabled
+  );
   return (
+    buttons.find((b) => (b.getAttribute("aria-label") ?? "").includes("发送")) ??
     buttons.find((b) => (b.textContent ?? "").includes("发送")) ??
     buttons.find((b) => b.type === "submit") ??
     null

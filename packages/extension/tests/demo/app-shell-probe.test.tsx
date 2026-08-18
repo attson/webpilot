@@ -69,4 +69,27 @@ describe("AppShell under the demo shim", () => {
     );
     expect(reactErrors).toEqual([]);
   });
+
+  it("autoplay can find the real panel's input and send button", async () => {
+    // The guard that matters: the demo starts by driving the panel's own UI.
+    // A markup change that hides the input or the send button leaves the demo
+    // sitting idle on the homepage, which a unit test with hand-made markup
+    // would never catch.
+    const { AppShell } = await import("@/sidepanel/shell/app-shell");
+    const { ThemeProvider } = await import("@/sidepanel/shell/theme-provider");
+    await act(async () => {
+      root.render(React.createElement(ThemeProvider, null, React.createElement(AppShell)));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const input = container.querySelector("textarea");
+    expect(input, "panel input").not.toBeNull();
+
+    const send = [...container.querySelectorAll("button")].find((b) =>
+      (b.getAttribute("aria-label") ?? "").includes("发送")
+    );
+    expect(send, "panel send button").toBeDefined();
+  });
 });

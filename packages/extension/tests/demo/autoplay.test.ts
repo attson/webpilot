@@ -50,6 +50,32 @@ describe("autoplay", () => {
     vi.useRealTimers();
   });
 
+  it("finds the real send button, which is an icon with aria-label", async () => {
+    // Regression: the product's send button is `<button aria-label="发送">↑`,
+    // so matching on textContent alone leaves the demo sitting idle.
+    vi.useFakeTimers();
+    document.body.innerHTML =
+      `<textarea></textarea><button aria-label="发送" type="button">↑</button>`;
+    let clicked = false;
+    document.querySelector("button")!.addEventListener("click", () => (clicked = true));
+    startAutoplay("x");
+    await tick(400);
+    expect(clicked).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it("skips a disabled send button", async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML =
+      `<textarea></textarea><button aria-label="发送" disabled>↑</button>`;
+    let clicked = false;
+    document.querySelector("button")!.addEventListener("click", () => (clicked = true));
+    startAutoplay("x");
+    await tick(400);
+    expect(clicked).toBe(false);
+    vi.useRealTimers();
+  });
+
   it("falls back to a submit button when the label differs", async () => {
     vi.useFakeTimers();
     document.body.innerHTML = `<textarea></textarea><button type="submit">Go</button>`;
