@@ -5,7 +5,7 @@ import {
 import type { InjectionMode, LlmSettings, SiteInjectionRule } from "@atwebpilot/shared/types";
 
 export const SETTINGS_KEY = "atwebpilot.llm";
-export const DEFAULT_INJECTION_MODE: InjectionMode = "operate";
+export const DEFAULT_INJECTION_MODE: InjectionMode = "diagnostic";
 export const DEFAULT_ASSISTANT_ENABLED = true;
 
 type PolicySettings = Pick<

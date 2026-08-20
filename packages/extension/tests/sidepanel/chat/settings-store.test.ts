@@ -77,6 +77,7 @@ describe("settings-store migration", () => {
     await useSettings.getState().load();
     expect(useSettings.getState().defaultPermissionMode).toBe("default");
     expect(useSettings.getState().trustedDangerTools).toEqual([]);
+    expect(useSettings.getState().defaultInjectionMode).toBe("diagnostic");
   });
 
   it("clamps persisted maxTokens into the supported UI range on load", async () => {

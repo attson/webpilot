@@ -144,7 +144,7 @@ export class CoordinatorChatHost {
           maxContinuationNudges: msg.settings_override?.maxContinuationNudges ?? 1,
           selfHealEnabled: true,
           maxSelfHealOutputTokens: 4096,
-          defaultInjectionMode: "operate",
+          defaultInjectionMode: "diagnostic",
           defaultAssistantEnabled: true,
           siteInjectionRules: [],
         },
