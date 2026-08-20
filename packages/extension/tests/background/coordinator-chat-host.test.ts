@@ -108,4 +108,29 @@ describe("CoordinatorChatHost.handle", () => {
     await host.handle(startMsg("s1", { rounds: [] }), () => undefined);
     expect(approverDecision).toEqual({ kind: "run" });
   });
+
+  it("reports remote tab-group lifecycle and awaiting status", async () => {
+    const onSessionStart = vi.fn();
+    const onSessionStatus = vi.fn();
+    const onSessionEnd = vi.fn();
+    const fakeRun = vi.fn(async ({ onEvent }: { onEvent?: (e: any) => void }) => {
+      onEvent?.({ type: "tool_use_end", id: "t", name: "click", input: {} });
+      onEvent?.({ type: "tool_running", id: "t" });
+    });
+    const host = new CoordinatorChatHost({
+      runChatSession: fakeRun as never,
+      pickActiveTab: async () => 42,
+      urlFor: async () => "https://example.com/",
+      onSessionStart,
+      onSessionStatus,
+      onSessionEnd
+    });
+
+    await host.handle(startMsg("remote-1"), () => undefined);
+
+    expect(onSessionStart).toHaveBeenCalledWith("remote-1", 42);
+    expect(onSessionStatus).toHaveBeenCalledWith("remote-1", "awaiting");
+    expect(onSessionStatus).toHaveBeenCalledWith("remote-1", "running");
+    expect(onSessionEnd).toHaveBeenCalledWith("remote-1");
+  });
 });

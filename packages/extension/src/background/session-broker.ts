@@ -9,10 +9,13 @@
  *
  * Receivers filter out self by comparing `senderId` to their own instance ID.
  */
-export function installSessionBroker(): () => void {
+export function installSessionBroker(options: {
+  onSnapshot?: (tabId: number, snapshot: unknown) => void | Promise<void>;
+} = {}): () => void {
   const listener = (msg: unknown, _sender: unknown, _respond: (r?: unknown) => void) => {
     const m = msg as { type?: string; tabId?: number; snapshot?: unknown } | null;
     if (!m || m.type !== "session.state.changed" || typeof m.tabId !== "number") return;
+    void options.onSnapshot?.(m.tabId, m.snapshot);
     // Fan-out to widget on that tab.
     void chrome.tabs.sendMessage(m.tabId, msg).catch(() => {});
     // Sidepanel and other extension pages receive the original runtime message

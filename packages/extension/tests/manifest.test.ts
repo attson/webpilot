@@ -13,6 +13,10 @@ describe("manifest", () => {
     expect(hostPermissions).toContain("ws://127.0.0.1/*");
     expect(hostPermissions).toContain("ws://localhost/*");
   });
+
+  it("declares native tab-group access for visible AI session ownership", () => {
+    expect((manifest as { permissions?: string[] }).permissions).toContain("tabGroups");
+  });
 });
 
 type ContentScript = { js?: string[]; world?: string; run_at?: string; matches?: string[] };

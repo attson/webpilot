@@ -23,7 +23,8 @@ describe("installSessionBroker", () => {
 
   it("relays session.state.changed to tabs.sendMessage for widget", async () => {
     const { installSessionBroker } = await import("@/background/session-broker");
-    installSessionBroker();
+    const onSnapshot = vi.fn();
+    installSessionBroker({ onSnapshot });
     expect(listeners.length).toBe(1);
     const cb = listeners[0];
     cb(
@@ -34,6 +35,7 @@ describe("installSessionBroker", () => {
     expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(7,
       expect.objectContaining({ type: "session.state.changed", tabId: 7, snapshot: { _rev: 3 } })
     );
+    expect(onSnapshot).toHaveBeenCalledWith(7, { _rev: 3 });
   });
 
   it("ignores unrelated messages", async () => {

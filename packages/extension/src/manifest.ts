@@ -14,7 +14,7 @@ export default defineManifest({
   side_panel: { default_path: "src/sidepanel/index.html" },
   background: { service_worker: "src/background/index.ts", type: "module" },
   optional_permissions: ["debugger"],
-  permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "webNavigation", "contextMenus", "bookmarks", "history", "downloads"],
+  permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "tabGroups", "webNavigation", "contextMenus", "bookmarks", "history", "downloads"],
   host_permissions: [
     "*://*.yangkeduo.com/*",
     "*://*.pinduoduo.com/*",

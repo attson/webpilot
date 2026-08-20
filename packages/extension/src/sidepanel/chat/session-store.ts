@@ -67,6 +67,8 @@ export type SessionData = {
   tabId: number;
   url: string;
   runRecordId: string | null;
+  /** Logical local conversation id shared by sidepanel and widget snapshots. */
+  _sessionId?: string;
 
   messages: ChatMessage[];
   streamingAssistantText: string;
@@ -112,6 +114,7 @@ export function makeEmptySession(tabId: number, url = ""): SessionData {
     tabId,
     url,
     runRecordId: null,
+    _sessionId: globalThis.crypto?.randomUUID?.() ?? `local-${Date.now()}-${Math.random()}`,
     messages: [],
     streamingAssistantText: "",
     cards: [],

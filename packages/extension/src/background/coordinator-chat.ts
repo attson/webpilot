@@ -36,6 +36,9 @@ export interface CoordinatorChatHostOptions {
   buildRealLlmClient?: () => Promise<LlmClient>;
   /** Override the tool runner (E2E tests use this to skip real chrome.scripting calls). */
   runner?: ToolRunner;
+  onSessionStart?: (sessionId: string, tabId: number) => void | Promise<void>;
+  onSessionStatus?: (sessionId: string, status: "running" | "awaiting") => void | Promise<void>;
+  onSessionEnd?: (sessionId: string) => void | Promise<void>;
 }
 
 function randomNonce(): string {
@@ -67,6 +70,9 @@ export class CoordinatorChatHost {
   private readonly url: (tabId: number) => Promise<string>;
   private readonly buildReal: () => Promise<LlmClient>;
   private readonly runner: ToolRunner | undefined;
+  private readonly onSessionStart?: CoordinatorChatHostOptions["onSessionStart"];
+  private readonly onSessionStatus?: CoordinatorChatHostOptions["onSessionStatus"];
+  private readonly onSessionEnd?: CoordinatorChatHostOptions["onSessionEnd"];
 
   constructor(opts: CoordinatorChatHostOptions = {}) {
     this.run = opts.runChatSession ?? (defaultRunChatSession as RunChatSessionFn);
@@ -84,6 +90,9 @@ export class CoordinatorChatHost {
       };
     });
     this.runner = opts.runner;
+    this.onSessionStart = opts.onSessionStart;
+    this.onSessionStatus = opts.onSessionStatus;
+    this.onSessionEnd = opts.onSessionEnd;
   }
 
   async handle(
@@ -125,6 +134,7 @@ export class CoordinatorChatHost {
 
       const tabId = msg.tab_id != null ? Number.parseInt(msg.tab_id, 10) : await this.pickTab();
       const url = await this.url(tabId);
+      await this.onSessionStart?.(msg.session_id, tabId);
 
       await this.run({
         client,
@@ -153,11 +163,18 @@ export class CoordinatorChatHost {
         permissionMode: "default",
         getAttachedTabIds: () => [],
         abortSignal: ac.signal,
-        onEvent: (e) => send(chatEvent(msg.session_id, e))
+        onEvent: (e) => {
+          if (e.type === "tool_use_end") void this.onSessionStatus?.(msg.session_id, "awaiting");
+          if (e.type === "tool_running" || e.type === "text_delta" || e.type === "round_start") {
+            void this.onSessionStatus?.(msg.session_id, "running");
+          }
+          send(chatEvent(msg.session_id, e));
+        }
       });
     } catch (e) {
       send(chatEvent(msg.session_id, sessionEndError(e instanceof Error ? e.message : String(e))));
     } finally {
+      await this.onSessionEnd?.(msg.session_id);
       this.active = null;
     }
   }

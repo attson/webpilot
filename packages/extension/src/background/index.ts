@@ -25,6 +25,8 @@ import { installTabsBroadcast } from "./tabs-broadcast";
 import { approve, decidePairing } from "./pairing-host";
 import type { PairPayload } from "@atwebpilot/shared/pairing";
 import { readPolicyForTab } from "@/injection-policy";
+import { TabSessionGroupManager } from "./tab-session-groups";
+import { LocalSessionGroupSync } from "./local-session-groups";
 
 // Idempotent; only takes effect once the user grants the optional debugger
 // permission and enables the CDP backend in settings.
@@ -57,7 +59,22 @@ chrome.sidePanel
 
 installTabWatcher();
 installTabCloseArchiver();
-installSessionBroker();
+const tabSessionGroups = new TabSessionGroupManager();
+const localSessionGroups = new LocalSessionGroupSync(tabSessionGroups);
+installSessionBroker({
+  onSnapshot: (tabId, snapshot) =>
+    localSessionGroups.sync(tabId, snapshot as Parameters<LocalSessionGroupSync["sync"]>[1])
+      .catch((e) => console.warn("[atwebpilot] local tab grouping failed", e))
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (typeof changeInfo.groupId === "number") {
+    void tabSessionGroups.handleGroupChanged(tabId, changeInfo.groupId);
+  }
+});
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void tabSessionGroups.releaseTab(tabId, false);
+});
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Tiny side-channel for content scripts that need to know their own tabId
@@ -140,32 +157,74 @@ let stopTabsBroadcast: (() => void) | null = null;
 
 function ensurePool(): CoordinatorPool {
   if (pool) return pool;
-  const chatHost = new CoordinatorChatHost();
+  const chatHost = new CoordinatorChatHost({
+    onSessionStart: (sessionId, tabId) =>
+      tabSessionGroups.claim({ sessionId: `remote:${sessionId}`, tabId, source: "remote" }),
+    onSessionStatus: (sessionId, status) =>
+      tabSessionGroups.setStatus(`remote:${sessionId}`, status),
+    onSessionEnd: (sessionId) => tabSessionGroups.releaseSession(`remote:${sessionId}`)
+  });
   activeStateBridge ??= new CoordinatorStateBridge({
     sendRuntimeMessage: (m) => chrome.runtime.sendMessage(m),
     onRuntimeMessage: (fn) => chrome.runtime.onMessage.addListener(fn),
     offRuntimeMessage: (fn) => chrome.runtime.onMessage.removeListener(fn)
   });
   pool = new CoordinatorPool({
-    clientOptions: (endpoint, connectionId) => ({
-      token: undefined,
-      worker_id: workerIdCache ?? "worker_pending",
-      savedToolsProvider: buildSavedToolsMetadata,
-      labelsProvider: async () => [],
-      onExec: handleExec,
-      onChat: (m, send) => chatHost.handle(m, send),
-      onReadState: (m, send) => activeStateBridge!.handle(m, send),
-      onSessionOpened: ({ session_id, tab_id }) =>
-        tabOwnership.claim(tab_id, {
-          connectionId,
-          sessionId: session_id,
-          label: poolLabelFor(connectionId)
-        }),
-      onSessionClosed: ({ session_id }) => tabOwnership.releaseBySession(session_id),
-      onStatusChange: (status) => {
-        void saveConnectionStatus({ status, ws_url: endpoint, updated_at: Date.now() });
-      }
-    })
+    clientOptions: (endpoint, connectionId) => {
+      const groupedSessions = new Set<string>();
+      const groupSessionId = (sessionId: string) => `mcp:${connectionId}:${sessionId}`;
+      return {
+        token: undefined,
+        worker_id: workerIdCache ?? "worker_pending",
+        savedToolsProvider: buildSavedToolsMetadata,
+        labelsProvider: async () => [],
+        onExec: async (exec) => {
+          const tabId = Number.parseInt(exec.tab_id, 10);
+          if (Number.isFinite(tabId)) {
+            groupedSessions.add(exec.session_id);
+            await tabSessionGroups.claim({
+              sessionId: groupSessionId(exec.session_id),
+              tabId,
+              source: "mcp"
+            });
+          }
+          return handleExec(exec);
+        },
+        onChat: (m, send) => chatHost.handle(m, send),
+        onReadState: (m, send) => activeStateBridge!.handle(m, send),
+        onSessionOpened: ({ session_id, tab_id }) => {
+          tabOwnership.claim(tab_id, {
+            connectionId,
+            sessionId: session_id,
+            label: poolLabelFor(connectionId)
+          });
+          const tabId = Number.parseInt(tab_id, 10);
+          if (Number.isFinite(tabId)) {
+            groupedSessions.add(session_id);
+            void tabSessionGroups.claim({
+              sessionId: groupSessionId(session_id),
+              tabId,
+              source: "mcp"
+            });
+          }
+        },
+        onSessionClosed: ({ session_id }) => {
+          tabOwnership.releaseBySession(session_id);
+          groupedSessions.delete(session_id);
+          void tabSessionGroups.releaseSession(groupSessionId(session_id));
+        },
+        onStatusChange: (status) => {
+          if (status === "disconnected" || status === "error") {
+            tabOwnership.releaseByConnection(connectionId);
+            for (const sessionId of groupedSessions) {
+              void tabSessionGroups.releaseSession(groupSessionId(sessionId));
+            }
+            groupedSessions.clear();
+          }
+          void saveConnectionStatus({ status, ws_url: endpoint, updated_at: Date.now() });
+        }
+      };
+    }
   });
   stopTabsBroadcast?.();
   stopTabsBroadcast = installTabsBroadcast({ pool, ownership: tabOwnership });
