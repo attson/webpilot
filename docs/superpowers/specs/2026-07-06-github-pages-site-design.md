@@ -324,7 +324,7 @@ frontmatter 下方再补充 markdown：三行示例 prompt + Coordinator/MCP 一
 
 ### /advanced/save-as-tool
 
-- 会话 → "保存为工具"→ 生成 URL 模式 `https://*.pinduoduo.com/**`
+- 会话 → "保存为工具"→ 生成 URL 模式 `https://*.example.com/**`
 - 汇总 step（让 AI 生成 runJS 汇总）—— 为什么必要
 - 重放：banner 上「运行」
 

@@ -350,7 +350,7 @@ restoreClosed(idx, currentTabId);
 在 status bar 之上加一个细条（仅当 currentTabId 与 sessionData.url 已知）：
 
 ```
-[Tab #142] mobile.pinduoduo.com/goods.html?...
+[Tab #142] shop.example.com/goods.html?...
 ```
 
 让用户清楚正在和哪个 tab 聊。点击不做事（或后期可加"聚焦该 tab"）。

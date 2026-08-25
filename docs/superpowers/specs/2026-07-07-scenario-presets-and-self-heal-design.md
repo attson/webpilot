@@ -8,14 +8,14 @@
 
 现状痛点：
 
-- **拉新**：装完扩展打开一个熟悉网页（拼多多、知乎、GitHub 等），侧边栏空白 + 3 个通用 quick-actions chip（总结 / 抽重点 / 抽评论），用户不知道"这东西能干啥"。
+- **拉新**：装完扩展打开一个熟悉网页（电商平台、知乎、GitHub 等），侧边栏空白 + 3 个通用 quick-actions chip（总结 / 抽重点 / 抽评论），用户不知道"这东西能干啥"。
 - **留存**：LLM 生成的 tool 存下来之后，网站小改（class 名换、DOM 结构调整）就整个失败。用户唯一的救济是工具详情页 `[让 AI 修复]` 按钮 → 手动跳对话页 → 手动发送 → 手动确认新 steps；非技术用户在这一步流失。
 
 两个方向天然强耦合：**preset 首次失败时自动自愈 → 生成用户本地 v2** 是"让第一次就成功"最锋利的一刀。因此合并成一份 spec。
 
 ## 2 · 目标
 
-- 新装用户在 12 个支持的网站（维基 / 知乎 / GitHub / Medium / 公众号 / PDD / 淘宝 / 京东 / 1688 / Amazon / 通用文章）中任一个，打开侧边栏零输入看到至少一条推荐。
+- 新装用户在支持的网站（维基 / 知乎 / GitHub / Medium / 公众号 / 淘宝 / 京东 / 1688 / Amazon / 通用文章）中任一个，打开侧边栏零输入看到至少一条推荐。
 - Tool-form preset 一键运行成功率 ≥ 90%（含自愈），无自愈基线 ~70%。
 - 自愈单次调用 ≤ 1 轮 LLM + 硬上限 4096 output tokens，不产生 runaway 成本。
 - 无 IDB schema 迁移；现有 tool、会话、导入导出、coordinator 路径零回归。
@@ -36,7 +36,7 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │  @atwebpilot/shared/presets/                                    │
 │  ├─ index.ts        PRESETS: Preset[]                           │
-│  ├─ ecommerce/*.ts  PDD / 淘宝 / 京东 / 1688 / Amazon            │
+│  ├─ ecommerce/*.ts  淘宝 / 京东 / 1688 / Amazon                      │
 │  └─ content/*.ts    维基 / GitHub / Medium / 知乎 / 公众号 / …    │
 └────────┬────────────────────────────────────────────────────────┘
          │ 静态 import (无 IO)
@@ -95,7 +95,7 @@
 ### 5.1 Preset 类型（新增，`packages/shared/src/preset.ts`）
 
 ```ts
-export type PresetId = string;               // 稳定 slug,如 "pdd-goods-collect"
+export type PresetId = string;               // 稳定 slug,如 "amazon-product-collect"
 export type PresetCategory = "ecommerce" | "content";
 
 export type PresetBase = {
@@ -126,7 +126,7 @@ export type Preset = PromptPreset | ToolPreset;
 ### 5.2 Registry 存放
 
 - `packages/shared/src/presets/index.ts` — `export const PRESETS: readonly Preset[]`
-- 按场景分目录：`presets/ecommerce/pdd.ts` / `presets/content/wikipedia.ts` / …
+- 按场景分目录：`presets/ecommerce/amazon.ts` / `presets/content/wikipedia.ts` / …
 - 每文件 export 单个 `Preset`
 - `index.ts` 静态聚合（无 dynamic import）
 - 单测通过 zod schema + 唯一 id 检查
@@ -196,8 +196,8 @@ async function computeRecommendations(url: string): Promise<Recommendation[]> {
 [分类切换 chip: 全部 · 商品采集 · 内容站]
 
 ── 商品采集 ────────────────────────
-[卡片] icon 拼多多商品采集
-       支持 mobile.pinduoduo.com/**
+[卡片] icon Amazon 商品采集
+       支持 www.amazon.com/**
        [在当前 tab 运行] [复制成我的工具] [查看示例页]
 
 ...
@@ -404,11 +404,10 @@ User:
 | `article-translate-zh` | 长文翻译 | 通用（无 URL 限定，靠 `<article>/<main>` DOM 触发） | 翻译为中文,保留段落 |
 | `github-issue-digest` | GitHub Issue 摘要 | `https://github.com/*/*/issues/**` | 讨论进展与共识 |
 
-### Ecommerce-form（tool，5 条）
+### Ecommerce-form（tool，4 条）
 
 | id | 名称 | URL pattern | 主要产物 | 是否需登录 |
 |---|---|---|---|---|
-| `pdd-goods-collect`    | 拼多多商品采集 | `https://mobile.pinduoduo.com/goods.html?**` | 主图 + 详情图 + 前 50 评论 | 否 |
 | `taobao-item-collect`  | 淘宝商品采集   | `https://item.taobao.com/**` | 主图 + 参数 + 前 30 评论 | 否 |
 | `jd-item-collect`      | 京东商品采集   | `https://item.jd.com/**` | 主图 + 参数表 + 前 30 评论 | 否 |
 | `1688-detail-collect`  | 1688 商品采集  | `https://detail.1688.com/**` | 主图 + 价格阶梯 + 供应商 | 否 |

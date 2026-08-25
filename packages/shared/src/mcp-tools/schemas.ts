@@ -13,7 +13,7 @@ export const OPEN_SESSION_INPUT_SCHEMA: JsonSchema = {
     labels: {
       type: "array",
       items: { type: "string" },
-      description: "Worker labels to prefer (e.g. 'logged-in:pdd')"
+      description: "Worker labels to prefer (e.g. 'logged-in:shop')"
     },
     capabilities: {
       type: "array",

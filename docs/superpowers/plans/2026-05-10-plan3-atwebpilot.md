@@ -2276,8 +2276,7 @@ export default defineManifest({
   background: { service_worker: "src/background/index.ts", type: "module" },
   permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "webNavigation"],
   host_permissions: [
-    "*://*.yangkeduo.com/*",
-    "*://*.pinduoduo.com/*",
+    "http://*/*",
     "https://*/*"
   ],
   content_scripts: [
@@ -2473,7 +2472,7 @@ pnpm test:watch
 4. 不点提交退出，验证表单字段确实被填好了
 
 ### 采集类
-1. 打开 https://mobile.pinduoduo.com/goods.html?goods_id=<任一商品>
+1. 打开 https://shop.example.com/goods.html?goods_id=<任一商品>
 2. 输入「把主图和标题拿出来」
 3. 期望：AI 用 snapshotDOM + querySelector* + extractImages 完成
 4. 完成后保存为工具，重新访问验证 banner 推荐 + 一键重放
@@ -2535,7 +2534,7 @@ Expected: 退出码 0；`dist/manifest.json` 中：
 
 1. 总结页面：维基百科条目 → 「用三个要点总结此页」
 2. 填表：httpbin.org/forms/post → 「填写客户名/电话/勾选/时间」
-3. 采集：PDD 详情页 → 「把主图和标题拿出来」+ 保存 + 重放
+3. 采集：商品详情页 → 「把主图和标题拿出来」+ 保存 + 重放
 
 如有失败记录控制台报错并修复。
 

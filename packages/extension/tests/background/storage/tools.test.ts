@@ -82,11 +82,11 @@ describe("tools storage", () => {
   });
 
   it("matchingTools filters both kinds by URL pattern", async () => {
-    await saveDraft(stepsDraft("PDD", ["https://*.yangkeduo.com/**"]));
-    await saveDraft(promptDraft("PDD AI", ["https://*.yangkeduo.com/**"]));
+    await saveDraft(stepsDraft("Shop", ["https://*.example.com/**"]));
+    await saveDraft(promptDraft("Shop AI", ["https://*.example.com/**"]));
     await saveDraft(stepsDraft("TB", ["https://*.taobao.com/**"]));
-    const hits = await matchingTools("https://mobile.yangkeduo.com/goods.html");
-    expect(hits.map((t) => t.name).sort()).toEqual(["PDD", "PDD AI"]);
+    const hits = await matchingTools("https://shop.example.com/goods.html");
+    expect(hits.map((t) => t.name).sort()).toEqual(["Shop", "Shop AI"]);
   });
 
   it("filters invalid old tools from list/get/matching", async () => {

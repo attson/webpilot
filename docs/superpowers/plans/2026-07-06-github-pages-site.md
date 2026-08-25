@@ -843,14 +843,14 @@ Create `docs-site/advanced/save-as-tool.md`：
 
 ## 什么时候用
 
-一次成功的会话（比如"采集 PDD 前 50 条评论"）由几个到几十个 step 组成。手工重复很烦；保存为工具后，下次访问同 URL 会自动推荐 + 一键重放。
+一次成功的会话（比如"采集商品页前 50 条评论"）由几个到几十个 step 组成。手工重复很烦；保存为工具后，下次访问同 URL 会自动推荐 + 一键重放。
 
 ## 保存流程
 
 会话结束（`✓ N 步成功执行`）后，顶部小条出现 `[保存为工具]` 按钮，点击：
 
 - **名称**：默认 `AtWebPilot 任务 YYYY-MM-DD`；改成能描述这次动作的
-- **URL 模式**：默认从当前 URL 推断（`https://mobile.pinduoduo.com/goods.html*` → `https://*.pinduoduo.com/**`）；改成合适的匹配范围
+- **URL 模式**：默认从当前 URL 推断（`https://shop.example.com/goods.html*` → `https://*.example.com/**`）；改成合适的匹配范围
 - **描述**：默认用户初始 prompt；改成简介
 - **保存的 step 数**：只保存"成功执行"的 step；跳过 / 失败 / 待审的不带
 - **汇总 step**：详见下一节
@@ -930,7 +930,7 @@ AI 想访问已开的 tab 时调 `attachTab(tabId, reason)`。需要你审批（
 - **主 tab**：`tabId` 字段整个不填（不要 0，不要 null）
 - **其它已挂 tab**：`tabId` 填对应数字
 
-例：AI 在主 tab（PDD 商品页）想查同款其它平台价格：
+例：AI 在主 tab（商品页）想查同款其它平台价格：
 
 ```json
 { "tool": "openTab", "input": { "url": "https://www.jd.com/search?q=商品名" } }

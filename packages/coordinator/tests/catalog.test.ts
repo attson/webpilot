@@ -22,19 +22,19 @@ function w(id: string, tools: { id: string; url_pattern: string[]; hash?: string
 describe("Catalog.listFor", () => {
   it("returns tools whose url_pattern matches session url", () => {
     const reg = new WorkerRegistry(new FakeClock());
-    reg.register(w("w1", [{ id: "pdd_v3", url_pattern: ["https://*.pinduoduo.com/**"] }]));
+    reg.register(w("w1", [{ id: "shop_v3", url_pattern: ["https://*.example.com/**"] }]));
     reg.register(w("w2", [{ id: "tb", url_pattern: ["https://*.taobao.com/**"] }]));
     const cat = new Catalog(reg);
-    const out = cat.listFor("https://mobile.pinduoduo.com/goods.html");
-    expect(out.map((t) => t.id)).toEqual(["pdd_v3"]);
+    const out = cat.listFor("https://shop.example.com/goods.html");
+    expect(out.map((t) => t.id)).toEqual(["shop_v3"]);
   });
 
   it("flags conflicting hashes when two workers expose same tool_id with different hashes", () => {
     const reg = new WorkerRegistry(new FakeClock());
-    reg.register(w("w1", [{ id: "pdd", url_pattern: ["https://*.pinduoduo.com/**"], hash: "h1" }]));
-    reg.register(w("w2", [{ id: "pdd", url_pattern: ["https://*.pinduoduo.com/**"], hash: "h2" }]));
+    reg.register(w("w1", [{ id: "shop", url_pattern: ["https://*.example.com/**"], hash: "h1" }]));
+    reg.register(w("w2", [{ id: "shop", url_pattern: ["https://*.example.com/**"], hash: "h2" }]));
     const cat = new Catalog(reg);
-    const out = cat.listFor("https://mobile.pinduoduo.com/");
+    const out = cat.listFor("https://shop.example.com/");
     expect(out).toHaveLength(1);
     expect(out[0].conflicting_hashes).toBe(true);
     expect(out[0].provided_by_workers.sort()).toEqual(["w1", "w2"]);
@@ -44,16 +44,16 @@ describe("Catalog.listFor", () => {
 describe("Catalog.lookup", () => {
   it("returns the entry by tool_id when url matches", () => {
     const reg = new WorkerRegistry(new FakeClock());
-    reg.register(w("w1", [{ id: "pdd_v3", url_pattern: ["https://*.pinduoduo.com/**"] }]));
+    reg.register(w("w1", [{ id: "shop_v3", url_pattern: ["https://*.example.com/**"] }]));
     const cat = new Catalog(reg);
-    const entry = cat.lookup("pdd_v3", "https://mobile.pinduoduo.com/");
-    expect(entry?.id).toBe("pdd_v3");
+    const entry = cat.lookup("shop_v3", "https://shop.example.com/");
+    expect(entry?.id).toBe("shop_v3");
   });
 
   it("returns undefined when url does not match", () => {
     const reg = new WorkerRegistry(new FakeClock());
-    reg.register(w("w1", [{ id: "pdd_v3", url_pattern: ["https://*.pinduoduo.com/**"] }]));
+    reg.register(w("w1", [{ id: "shop_v3", url_pattern: ["https://*.example.com/**"] }]));
     const cat = new Catalog(reg);
-    expect(cat.lookup("pdd_v3", "https://example.com")).toBeUndefined();
+    expect(cat.lookup("shop_v3", "https://example.com")).toBeUndefined();
   });
 });

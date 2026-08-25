@@ -184,7 +184,7 @@ atwebpilot2/
   ├──────────────────────►│                                   │
   │   HELLO {worker_id, capabilities, attended:true,           │
   │          available_tabs[], saved_tools[],                  │
-  │          labels:["chrome:macos","logged-in:pdd"]}          │
+  │          labels:["chrome:macos","logged-in:shop"]}          │
   ├──────────────────────►│                                   │
   │   WELCOME {server_time, heartbeat_interval_ms:20000}       │
   │ ◄─────────────────────│                                   │
@@ -204,8 +204,8 @@ atwebpilot2/
 AI Client       MCP/REST 入口             Coordinator                  Worker
    │                  │                          │                       │
    │ open_session({                              │                       │
-   │   url:"https://mobile.pinduoduo.com/...",   │                       │
-   │   labels?:["logged-in:pdd"],                │                       │
+   │   url:"https://shop.example.com/...",   │                       │
+   │   labels?:["logged-in:shop"],                │                       │
    │   capabilities:["click","fillInput",        │                       │
    │                 "httpRequest:cookied"]      │                       │
    │ })                                          │                       │
@@ -407,7 +407,7 @@ AI 无权读 audit；扩展侧保留本地 audit（沿用 SessionEvent 流），
 | # | 场景 | 验证什么 |
 |---|---|---|
 | 1 | MCP 调 `open_session` + `extractText`（维基百科） | 全链路 + safe 工具自动跑 |
-| 2 | 调 saved tool `run_tool("pdd_v3")`（httpbin fixture） | catalog hash 校验 + progress 流式 |
+| 2 | 调 saved tool `run_tool("shop_v3")`（httpbin fixture） | catalog hash 校验 + progress 流式 |
 | 3 | 未授权 scope 调 `submitForm` | `PermissionDenied` 非 `WorkerError` |
 | 4 | 扩展 SW 被强杀 → 30s 后再调 | 重连 + session 恢复 |
 | 5 | session idle 30min | `SessionExpired` |
@@ -435,7 +435,7 @@ nightly / manual
 **不测的事**：
 
 - 不测真 LLM 调用（已有 mock）
-- 不测真 PDD / 淘宝（用本地 fixture HTTP server 控 HTML）
+- 不测真实电商网站（用本地 fixture HTTP server 控 HTML）
 - 不测 Chrome 升级兼容（手工 monitor + nightly E2E 兜底）
 
 ## 7. 附录

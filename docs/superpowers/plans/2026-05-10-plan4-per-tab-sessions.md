@@ -1991,9 +1991,9 @@ Expected: 退出码 0。
 按 README 三个手测脚本，再加 per-tab 验证：
 
 1. **per-tab 隔离**：
-   - tab A 打开 PDD 详情页，发"采主图"
+   - tab A 打开 商品详情页，发"采主图"
    - 切到 tab B 打开维基百科页，发"用三个要点总结"
-   - 切回 tab A，会话历史仍是 PDD 那段；切回 B，是维基那段
+   - 切回 tab A，会话历史仍是商品采集那段；切回 B，是维基那段
 
 2. **navigate 内 system note**：
    - 同一 tab 内点链接到新 URL

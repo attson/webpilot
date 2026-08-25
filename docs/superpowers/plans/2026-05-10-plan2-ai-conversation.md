@@ -111,10 +111,8 @@ git commit -m "chore: add zustand for sidepanel session state"
 // 在 src/manifest.ts 中：
 permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "webNavigation"],
 host_permissions: [
-  "*://*.yangkeduo.com/*",
-  "*://*.pinduoduo.com/*",
-  "https://api.anthropic.com/*",
-  "https://api.openai.com/*"
+  "http://*/*",
+  "https://*/*"
 ],
 ```
 
@@ -681,13 +679,13 @@ describe("tab-watcher", () => {
 
   it("sets badge text when matching tools exist", async () => {
     await saveDraft({
-      name: "PDD",
-      urlPatterns: ["https://*.yangkeduo.com/**"],
+      name: "电商平台",
+      urlPatterns: ["https://*.example.com/**"],
       description: "",
       steps: [{ kind: "tool", tool: "snapshotDOM", args: {} }],
       outputSchema: {}
     });
-    await refreshRecommendations(7, "https://mobile.yangkeduo.com/goods.html");
+    await refreshRecommendations(7, "https://shop.example.com/goods.html");
     expect(setBadgeText).toHaveBeenCalledWith({ tabId: 7, text: "1" });
     expect(setBadgeBackgroundColor).toHaveBeenCalled();
   });
@@ -700,20 +698,20 @@ describe("tab-watcher", () => {
 
   it("broadcasts recommendations to sidepanel", async () => {
     await saveDraft({
-      name: "PDD",
-      urlPatterns: ["https://*.yangkeduo.com/**"],
+      name: "电商平台",
+      urlPatterns: ["https://*.example.com/**"],
       description: "",
       steps: [{ kind: "tool", tool: "snapshotDOM", args: {} }],
       outputSchema: {}
     });
-    const url = "https://mobile.yangkeduo.com/goods.html";
+    const url = "https://shop.example.com/goods.html";
     await refreshRecommendations(9, url);
     expect(sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "tabs.recommendations",
         tabId: 9,
         url,
-        tools: expect.arrayContaining([expect.objectContaining({ name: "PDD" })])
+        tools: expect.arrayContaining([expect.objectContaining({ name: "电商平台" })])
       })
     );
   });
@@ -4055,7 +4053,7 @@ pnpm test:watch
 
 需要真 API Key 的端到端验证：
 
-1. 打开 https://mobile.pinduoduo.com/goods.html?goods_id=<任一商品>
+1. 打开 https://shop.example.com/goods.html?goods_id=<任一商品>
 2. 侧边面板「对话」页输入：「把主图和标题拿出来」
 3. 期望：
    - AI 流式回文本，`snapshotDOM` 卡片自动通过、`querySelector*` / `extractImages` 自动通过
@@ -4115,7 +4113,7 @@ echo "Plan 2 complete"
 - [ ] 类型检查通过
 - [ ] dist 可装载，对话流程跑通：流式文本、step 卡审阅、保存对话框
 - [ ] tab URL 切换 → action icon 角标正确刷新
-- [ ] PDD 详情页 banner 推荐能重放保存的工具
+- [ ] 商品详情页 banner 推荐能重放保存的工具
 - [ ] 失败修复入口能跳转 ChatPage 并预填上下文
 - [ ] runJS 含 `document.cookie` 时卡片红框 + 不能自动通过
 

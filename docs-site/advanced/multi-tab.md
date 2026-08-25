@@ -25,7 +25,7 @@ AI 想访问已开的 tab 时调 `attachTab(tabId, reason)`。需要你审批（
 - **主 tab**：`tabId` 字段整个不填（不要 0，不要 null）
 - **其它已挂 tab**：`tabId` 填对应数字
 
-例：AI 在主 tab（PDD 商品页）想查同款其它平台价格：
+例：AI 在主 tab 的商品页想查同款在其它平台的价格：
 
 ```json
 { "tool": "openTab", "input": { "url": "https://www.jd.com/search?q=商品名" } }

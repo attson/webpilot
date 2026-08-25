@@ -73,12 +73,12 @@ describe("WorkerRegistry.pickForUrl", () => {
     r.register(
       makeWorker("w1", {
         saved_tools: [
-          { id: "pdd", version: 1, hash: "h", url_pattern: ["https://*.pinduoduo.com/**"] }
+          { id: "shop", version: 1, hash: "h", url_pattern: ["https://*.example.com/**"] }
         ]
       })
     );
     r.register(makeWorker("w2"));
-    const matches = r.pickForUrl("https://mobile.pinduoduo.com/goods.html?id=1");
+    const matches = r.pickForUrl("https://shop.example.com/goods.html?id=1");
     expect(matches.map((w) => w.id)).toEqual(["w1"]);
   });
 
@@ -92,20 +92,20 @@ describe("WorkerRegistry.pickForUrl", () => {
     const r = new WorkerRegistry(new FakeClock());
     r.register(
       makeWorker("w1", {
-        labels: new Set(["logged-in:pdd"]),
+        labels: new Set(["logged-in:shop"]),
         saved_tools: [
-          { id: "pdd", version: 1, hash: "h", url_pattern: ["https://*.pinduoduo.com/**"] }
+          { id: "shop", version: 1, hash: "h", url_pattern: ["https://*.example.com/**"] }
         ]
       })
     );
     r.register(
       makeWorker("w2", {
         saved_tools: [
-          { id: "pdd", version: 1, hash: "h", url_pattern: ["https://*.pinduoduo.com/**"] }
+          { id: "shop", version: 1, hash: "h", url_pattern: ["https://*.example.com/**"] }
         ]
       })
     );
-    const matches = r.pickForUrl("https://mobile.pinduoduo.com/", ["logged-in:pdd"]);
+    const matches = r.pickForUrl("https://shop.example.com/", ["logged-in:shop"]);
     expect(matches[0].id).toBe("w1");
   });
 });

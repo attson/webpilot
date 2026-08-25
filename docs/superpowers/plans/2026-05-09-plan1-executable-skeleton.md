@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 实现一个能装载到 Chromium 浏览器的扩展骨架，用户可以把**手写**的 Tool JSON 粘到侧边面板，在被注入的页面（如 PDD 详情页）顺序执行所有 step，看到 JSON 输出，并保存为 IndexedDB 中的工具供下次重放。
+**Goal:** 实现一个能装载到 Chromium 浏览器的扩展骨架，用户可以把**手写**的 Tool JSON 粘到侧边面板，在被注入的页面（如商品详情页）顺序执行所有 step，看到 JSON 输出，并保存为 IndexedDB 中的工具供下次重放。
 
 **Architecture:** Manifest V3 扩展，三入口（service worker / content script / sidepanel）。侧边面板是唯一 UI，通过 typed RPC 与 service worker 通信；service worker 持有 IndexedDB 工具库；content script 在 isolated world 跑 Step Runner，按需通过 `chrome.scripting.executeScript({world:"MAIN"})` 注入 AI 生成的 JS（本计划仅留接口，不接 AI）。
 
@@ -226,8 +226,8 @@ export default defineManifest({
   background: { service_worker: "src/background/index.ts", type: "module" },
   permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs"],
   host_permissions: [
-    "*://*.yangkeduo.com/*",
-    "*://*.pinduoduo.com/*"
+    "http://*/*",
+    "https://*/*"
   ],
   content_scripts: [
     {
@@ -522,10 +522,10 @@ import { describe, expect, it } from "vitest";
 import { compilePattern, matchesAny } from "@/shared/url-pattern";
 
 describe("url-pattern", () => {
-  it("compilePattern matches PDD goods page", () => {
-    const re = compilePattern("https://mobile.yangkeduo.com/goods*.html");
-    expect(re.test("https://mobile.yangkeduo.com/goods.html?id=1")).toBe(true);
-    expect(re.test("https://mobile.yangkeduo.com/goods_detail.html")).toBe(true);
+  it("compilePattern matches Shop goods page", () => {
+    const re = compilePattern("https://shop.example.com/goods*.html");
+    expect(re.test("https://shop.example.com/goods.html?id=1")).toBe(true);
+    expect(re.test("https://shop.example.com/goods_detail.html")).toBe(true);
     expect(re.test("https://other.com/goods.html")).toBe(false);
   });
 
@@ -542,8 +542,8 @@ describe("url-pattern", () => {
   });
 
   it("matchesAny returns true if any pattern matches", () => {
-    const url = "https://mobile.yangkeduo.com/goods.html";
-    expect(matchesAny(url, ["https://other.com/*", "https://*.yangkeduo.com/**"])).toBe(true);
+    const url = "https://shop.example.com/goods.html";
+    expect(matchesAny(url, ["https://other.com/*", "https://*.example.com/**"])).toBe(true);
     expect(matchesAny(url, ["https://other.com/*"])).toBe(false);
   });
 
@@ -860,8 +860,8 @@ describe("tools storage", () => {
 
   it("matchingTools filters by URL pattern", async () => {
     await saveDraft({
-      name: "PDD",
-      urlPatterns: ["https://*.yangkeduo.com/**"],
+      name: "电商平台",
+      urlPatterns: ["https://*.example.com/**"],
       description: "",
       steps: sampleSteps,
       outputSchema: {}
@@ -873,8 +873,8 @@ describe("tools storage", () => {
       steps: sampleSteps,
       outputSchema: {}
     });
-    const hits = await matchingTools("https://mobile.yangkeduo.com/goods.html");
-    expect(hits.map((t) => t.name)).toEqual(["PDD"]);
+    const hits = await matchingTools("https://shop.example.com/goods.html");
+    expect(hits.map((t) => t.name)).toEqual(["电商平台"]);
   });
 
   it("deleteTool removes the tool", async () => {
@@ -3427,7 +3427,7 @@ import { currentTabId, rpc } from "../rpc";
 const SAMPLE = JSON.stringify(
   {
     name: "新工具",
-    urlPatterns: ["https://*.yangkeduo.com/**"],
+    urlPatterns: ["https://*.example.com/**"],
     description: "",
     steps: [
       { kind: "tool", tool: "snapshotDOM", args: { maxDepth: 3 } }
@@ -3777,8 +3777,8 @@ pnpm build           # 产出 dist/
 
 ```json
 {
-  "name": "PDD 详情页采集器",
-  "urlPatterns": ["https://*.yangkeduo.com/**"],
+  "name": "商品详情页采集器",
+  "urlPatterns": ["https://*.example.com/**"],
   "description": "抓主图与标题",
   "steps": [
     {
@@ -3852,7 +3852,7 @@ Expected: 退出码 0；`dist/manifest.json` 中包含 `side_panel`、`content_s
 - [ ] **Step 4: 手测验证**
 
 1. `chrome://extensions` 加载 `dist/`
-2. 打开 https://mobile.yangkeduo.com/goods.html?xxx（任一商品页，登录与否都行）
+2. 打开 https://shop.example.com/goods.html?xxx（任一商品页，登录与否都行）
 3. 点扩展图标 → 侧边面板出现
 4. 默认 RunPage 显示一个示例 Tool JSON（`snapshotDOM`），点「运行」
 5. 期望：1-3 秒内看到 `status=ok` 与 DOM 摘要 JSON
@@ -3875,7 +3875,7 @@ echo "Plan 1 complete"
 
 - [ ] 所有 51 个单元测试通过
 - [ ] 类型检查通过
-- [ ] dist 可装载、可在 PDD 详情页跑出 snapshotDOM 输出
+- [ ] dist 可装载、可在商品详情页跑出 snapshotDOM 输出
 - [ ] 工具列表能保存、列出、运行、删除
 - [ ] 导出/导入 JSON 正确合并
 - [ ] 没有 `console.error` 抛出在 service worker（除非是用户主动触发的预期失败）

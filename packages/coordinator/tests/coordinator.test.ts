@@ -29,13 +29,13 @@ function makeWorker(id: string, overrides: Partial<Worker> = {}): Worker {
     capabilities: new Set(["read:dom", "interact:form", "submit:form"]),
     attended: true,
     labels: new Set(),
-    available_tabs: [{ tab_id: "t1", url: "https://mobile.pinduoduo.com/goods.html" }],
+    available_tabs: [{ tab_id: "t1", url: "https://shop.example.com/goods.html" }],
     saved_tools: [
       {
-        id: "pdd_v3",
+        id: "shop_v3",
         version: 1,
         hash: "abc",
-        url_pattern: ["https://*.pinduoduo.com/**"]
+        url_pattern: ["https://*.example.com/**"]
       }
     ],
     protocol_version: 1,
@@ -59,7 +59,7 @@ describe("Coordinator happy path", () => {
     expect(session.state).toBe("active");
 
     const tools = coord.listToolsForSession(session.id);
-    expect(tools?.map((t) => t.id)).toEqual(["pdd_v3"]);
+    expect(tools?.map((t) => t.id)).toEqual(["shop_v3"]);
 
     const validate = coord.validateCall({
       session_id: session.id,

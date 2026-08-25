@@ -7,7 +7,7 @@ import { currentTabId, rpc } from "@/sidepanel/rpc";
 const SAMPLE = JSON.stringify(
   {
     name: "新工具",
-    urlPatterns: ["https://*.yangkeduo.com/**"],
+    urlPatterns: ["https://*.example.com/**"],
     description: "",
     steps: [{ kind: "tool", tool: "snapshotDOM", args: { maxDepth: 3 } }],
     outputSchema: {},

@@ -4,6 +4,10 @@ import { PRESETS } from "../src/presets";
 import { PresetSchema } from "../src/preset";
 
 describe("PRESETS registry", () => {
+  it("contains the 11 supported generic and site presets", () => {
+    expect(PRESETS).toHaveLength(11);
+  });
+
   it("all entries are valid Preset", () => {
     for (const p of PRESETS) {
       const r = PresetSchema.safeParse(p);

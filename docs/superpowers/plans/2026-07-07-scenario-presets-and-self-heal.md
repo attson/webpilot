@@ -27,7 +27,7 @@
 **新建(shared)**
 - `packages/shared/src/preset.ts` — `Preset` 类型 + zod schema
 - `packages/shared/src/presets/index.ts` — `PRESETS: readonly Preset[]` 静态聚合
-- `packages/shared/src/presets/ecommerce/pdd.ts` / `taobao.ts` / `jd.ts` / `_1688.ts` / `amazon.ts`
+- `packages/shared/src/presets/ecommerce/taobao.ts` / `jd.ts` / `_1688.ts` / `amazon.ts`
 - `packages/shared/src/presets/content/wikipedia.ts` / `github-repo.ts` / `github-issue.ts` / `medium.ts` / `zhihu.ts` / `wechat-mp.ts` / `article-translate.ts`
 - `packages/shared/src/match-presets.ts` — `matchPresetsByUrl(url): Preset[]`
 - `packages/shared/tests/preset-registry.test.ts`
@@ -93,11 +93,11 @@ describe("PresetSchema", () => {
 
   it("accepts a valid tool preset", () => {
     const raw = {
-      id: "pdd-goods-collect",
-      name: "拼多多采集",
+      id: "example-product-collect",
+      name: "商品采集示例",
       description: "主图+评论",
       category: "ecommerce",
-      urlPatterns: ["https://mobile.pinduoduo.com/goods.html?**"],
+      urlPatterns: ["https://shop.example.com/products/**"],
       version: 1,
       kind: "tool",
       steps: [{ kind: "tool", tool: "snapshotDOM", args: {} }]
@@ -527,10 +527,9 @@ git commit -m "feat(shared): 7 个内容站 prompt-form preset(维基/GitHub/Med
 
 ---
 
-### Task 4: 5 个 Tool-form Preset(电商采集)
+### Task 4: 4 个 Tool-form Preset(电商采集)
 
 **Files:**
-- Create: `packages/shared/src/presets/ecommerce/pdd.ts`
 - Create: `packages/shared/src/presets/ecommerce/taobao.ts`
 - Create: `packages/shared/src/presets/ecommerce/jd.ts`
 - Create: `packages/shared/src/presets/ecommerce/_1688.ts`
@@ -538,36 +537,11 @@ git commit -m "feat(shared): 7 个内容站 prompt-form preset(维基/GitHub/Med
 - Modify: `packages/shared/src/presets/index.ts`
 
 **Interfaces:**
-- Produces: 5 named tool `Preset` exports;registry now has 12 entries.
+- Produces: 4 named tool `Preset` exports;registry now has 11 entries.
 
 **说明:tool-form preset 首版仅提供"最小可跑步序" — `snapshotDOM` + `extractText` + `extractImages` 就可以;真实生产的稳健序列由自愈路径迭代出。**
 
-- [ ] **Step 1: Add pdd preset**
-
-```ts
-// packages/shared/src/presets/ecommerce/pdd.ts
-import type { Preset } from "../../preset";
-
-export const pddGoodsCollect: Preset = {
-  id: "pdd-goods-collect",
-  name: "拼多多商品采集",
-  description: "主图 + 详情图 + 前 50 评论",
-  category: "ecommerce",
-  urlPatterns: ["https://mobile.pinduoduo.com/goods.html?**"],
-  version: 1,
-  sampleUrl: "https://mobile.pinduoduo.com/goods.html?goods_id=demo",
-  kind: "tool",
-  steps: [
-    { kind: "tool", tool: "waitFor", args: { selector: "body", timeoutMs: 3000 } },
-    { kind: "tool", tool: "extractImages", args: {}, bindResultTo: "images" },
-    { kind: "tool", tool: "scroll", args: { to: "bottom" } },
-    { kind: "tool", tool: "extractText", args: {}, bindResultTo: "text" },
-    { kind: "tool", tool: "snapshotDOM", args: { depth: 5 }, bindResultTo: "dom" }
-  ]
-};
-```
-
-- [ ] **Step 2: Add taobao preset**
+- [ ] **Step 1: Add taobao preset**
 
 ```ts
 // packages/shared/src/presets/ecommerce/taobao.ts
@@ -591,7 +565,7 @@ export const taobaoItemCollect: Preset = {
 };
 ```
 
-- [ ] **Step 3: Add jd preset**
+- [ ] **Step 2: Add jd preset**
 
 ```ts
 // packages/shared/src/presets/ecommerce/jd.ts
@@ -616,7 +590,7 @@ export const jdItemCollect: Preset = {
 };
 ```
 
-- [ ] **Step 4: Add 1688 preset**
+- [ ] **Step 3: Add 1688 preset**
 
 ```ts
 // packages/shared/src/presets/ecommerce/_1688.ts
@@ -640,7 +614,7 @@ export const alibaba1688DetailCollect: Preset = {
 };
 ```
 
-- [ ] **Step 5: Add amazon preset**
+- [ ] **Step 4: Add amazon preset**
 
 ```ts
 // packages/shared/src/presets/ecommerce/amazon.ts
@@ -665,7 +639,7 @@ export const amazonProductCollect: Preset = {
 };
 ```
 
-- [ ] **Step 6: Wire into registry**
+- [ ] **Step 5: Wire into registry**
 
 ```ts
 // packages/shared/src/presets/index.ts
@@ -677,7 +651,6 @@ import { mediumArticleTldr } from "./content/medium";
 import { zhihuQuestionSummary } from "./content/zhihu";
 import { wechatMpSummary } from "./content/wechat-mp";
 import { articleTranslateZh } from "./content/article-translate";
-import { pddGoodsCollect } from "./ecommerce/pdd";
 import { taobaoItemCollect } from "./ecommerce/taobao";
 import { jdItemCollect } from "./ecommerce/jd";
 import { alibaba1688DetailCollect } from "./ecommerce/_1688";
@@ -693,7 +666,6 @@ export const PRESETS: readonly Preset[] = Object.freeze([
   wechatMpSummary,
   articleTranslateZh,
   // ecommerce
-  pddGoodsCollect,
   taobaoItemCollect,
   jdItemCollect,
   alibaba1688DetailCollect,
@@ -701,18 +673,18 @@ export const PRESETS: readonly Preset[] = Object.freeze([
 ]);
 ```
 
-- [ ] **Step 7: Run all shared tests**
+- [ ] **Step 6: Run all shared tests**
 
 ```bash
 pnpm --filter @atwebpilot/shared test
 ```
-Expected: all pass (registry has 12 entries, all valid, unique ids)
+Expected: all pass (registry has 11 entries, all valid, unique ids)
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add packages/shared/src/presets/ecommerce packages/shared/src/presets/index.ts
-git commit -m "feat(shared): 5 个电商 tool-form preset(PDD/淘宝/京东/1688/Amazon)"
+git commit -m "feat(shared): 4 个电商 tool-form preset(淘宝/京东/1688/Amazon)"
 ```
 
 ---
@@ -756,7 +728,7 @@ describe("Tool.origin optional", () => {
       id: "u1", name: "u1", urlPatterns: ["https://a/*"],
       description: "", kind: "steps", steps: [], versions: [],
       createdAt: 0,
-      origin: { kind: "preset", presetId: "pdd-goods-collect", presetVersion: 1 }
+      origin: { kind: "preset", presetId: "example-product-collect", presetVersion: 1 }
     };
     expect(ToolSchema.safeParse(t).success).toBe(true);
   });
@@ -979,7 +951,7 @@ import { ChatSessionEventSchema } from "../../src/protocol/chat-event";
 
 describe("self_heal_* SessionEvents", () => {
   const cases = [
-    { kind: "self_heal_started", toolId: "t1", toolName: "PDD 采集", failedStepIndex: 2 },
+    { kind: "self_heal_started", toolId: "t1", toolName: "商品采集", failedStepIndex: 2 },
     { kind: "self_heal_completed", toolId: "t1", newVersion: 2, fixedStepIndex: 2 },
     { kind: "self_heal_failed", toolId: "t1", reason: "invalid_output" }
   ];
@@ -1753,7 +1725,7 @@ import type { Step } from "@atwebpilot/shared/types";
 
 const baseCtx = {
   tool: {
-    id: "t1", name: "PDD", urlPatterns: ["*"], description: "",
+    id: "t1", name: "电商平台", urlPatterns: ["*"], description: "",
     kind: "steps" as const, steps: [] as Step[],
     versions: [{ version: 1, kind: "steps", steps: [] as Step[], outputSchema: null, createdAt: 0 }],
     createdAt: 0
@@ -2548,13 +2520,13 @@ Expected: `packages/extension/dist/` produced without error
 
 - [ ] **Step 3: (可选) Docs-site preset 列表**
 
-Add a section listing the 12 built-in presets to `docs-site` (guide or tools-reference page). Skip if docs-site build is out of scope for this iteration.
+Add a section listing the 11 built-in presets to `docs-site` (guide or tools-reference page). Skip if docs-site build is out of scope for this iteration.
 
 - [ ] **Step 4: Commit any docs changes(如做了)**
 
 ```bash
 git add docs-site
-git commit -m "docs(site): 补 12 个内置 preset 列表"
+git commit -m "docs(site): 补 11 个内置 preset 列表"
 ```
 
 ---
@@ -2599,7 +2571,7 @@ git checkout feat/scenario-presets-and-self-heal
 git push -u origin feat/scenario-presets-and-self-heal
 gh pr create --title "feat: 场景 Preset 库 + Tool 运行时自愈" --body "$(cat <<'EOF'
 ## Summary
-- 引入 `@atwebpilot/shared/presets` 静态 registry — 12 个内置 preset(7 内容站 prompt-form + 5 电商 tool-form)
+- 引入 `@atwebpilot/shared/presets` 静态 registry — 11 个内置 preset(7 内容站 prompt-form + 4 电商 tool-form)
 - Tool 重放路径加运行时自愈: step 失败 → 一次性 LLM 调用生成补丁 steps → static-scan 拒 dangerous → appendVersion v(N+1) 继续跑
 - 曝光通路: tab-watcher 合并 preset 匹配 → quick-actions URL 命中优先 → 新 `#/scenarios` 场景库页
 - 设置加两个开关: `selfHealEnabled`(默认 on), `maxSelfHealOutputTokens`(默认 4096)
@@ -2611,8 +2583,8 @@ gh pr create --title "feat: 场景 Preset 库 + Tool 运行时自愈" --body "$(
 - [ ] `pnpm test` 全绿(shared + extension + coordinator)
 - [ ] `pnpm build` 产 `packages/extension/dist/`
 - [ ] 手测: 打开 wikipedia — 侧边栏推荐命中「维基百科总结」
-- [ ] 手测: 场景库页可见 12 个 preset,按分类过滤 OK
-- [ ] 手测: PDD 页面运行 preset — 若步骤失败自愈成功后 v2 存在,顶部条显示「自愈中 → 已升级 v2」
+- [ ] 手测: 场景库页可见 11 个 preset,按分类过滤 OK
+- [ ] 手测: 淘宝页面运行 preset — 若步骤失败自愈成功后 v2 存在,顶部条显示「自愈中 → 已升级 v2」
 EOF
 )"
 ```

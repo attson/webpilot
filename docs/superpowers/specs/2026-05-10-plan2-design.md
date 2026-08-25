@@ -7,7 +7,7 @@
 
 ## 1. 目标
 
-让用户在被注入页面（如 PDD 详情页）打开侧边面板，用自然语言描述要采集什么，AI 通过多轮 tool-use 自动调用 Plan 1 的内置工具完成采集；过程中每个有副作用的 step 必须经人工审阅；成功后一键保存为可复用工具，下次访问同类页面时面板顶部 banner 推荐重放。
+让用户在被注入页面（如商品详情页）打开侧边面板，用自然语言描述要采集什么，AI 通过多轮 tool-use 自动调用 Plan 1 的内置工具完成采集；过程中每个有副作用的 step 必须经人工审阅；成功后一键保存为可复用工具，下次访问同类页面时面板顶部 banner 推荐重放。
 
 非目标（推迟到 Plan 3 或之后）：
 - 多模态（截图当输入）
@@ -627,7 +627,7 @@ atwebpilot2/
 - 通用站点 host_permissions 动态请求（`chrome.permissions.request`）
 - 多模态截屏给 AI（用 `chrome.tabs.captureVisibleTab` 替代/补充 snapshotDOM）
 - 自动备份开关（保存工具时自动下载 `<tool>-vN-<date>.json`）
-- 自动化 e2e（playwright loadExtension + PDD fixture）
+- 自动化 e2e（playwright loadExtension + 商品页 fixture）
 - 跨 session 持久化的聊天历史（如果用户开始反复编辑同一工具）
 - AI agent 视角看 stepLog 的成本控制（snapshotDOM 输出可能上万字，需要 truncation/summarization 策略）
 

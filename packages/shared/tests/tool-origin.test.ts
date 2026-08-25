@@ -22,7 +22,7 @@ describe("Tool.origin optional", () => {
       ],
       outputSchema: {},
       createdAt: 0, updatedAt: 0, stats: { runs: 0 },
-      origin: { kind: "preset", presetId: "pdd-goods-collect", presetVersion: 1 }
+      origin: { kind: "preset", presetId: "example-product-collect", presetVersion: 1 }
     };
     expect(ToolSchema.safeParse(t).success).toBe(true);
   });

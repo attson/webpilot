@@ -4,7 +4,7 @@ import type { Step } from "@atwebpilot/shared/types";
 
 const baseCtx = {
   tool: {
-    id: "t1", name: "PDD", urlPatterns: ["*"], description: "",
+    id: "t1", name: "Shop", urlPatterns: ["*"], description: "",
     kind: "steps" as const, steps: [] as Step[],
     versions: [{ version: 1, kind: "steps", steps: [] as Step[], outputSchema: null, createdAt: 0 }],
     createdAt: 0

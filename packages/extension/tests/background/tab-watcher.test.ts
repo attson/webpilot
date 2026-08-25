@@ -25,14 +25,14 @@ describe("tab-watcher", () => {
   it("sets badge text when matching tools exist", async () => {
     await saveDraft({
       kind: "steps",
-      name: "PDD",
-      urlPatterns: ["https://*.yangkeduo.com/**"],
+      name: "Shop",
+      urlPatterns: ["https://*.example.com/**"],
       description: "",
       steps: [{ kind: "tool", tool: "snapshotDOM", args: {} }],
       outputSchema: {}
     });
-    await refreshRecommendations(7, "https://mobile.yangkeduo.com/goods.html");
-    // badge = tools.length + presets.length; PDD URL also matches article-translate-zh (https://**)
+    await refreshRecommendations(7, "https://shop.example.com/goods.html");
+    // badge = tools.length + presets.length; Shop URL also matches article-translate-zh (https://**)
     // so count is at least 1 (tool); total ≥ 1
     expect(setBadgeText).toHaveBeenCalledWith({ tabId: 7, text: expect.stringMatching(/^[1-9]\d*$/) });
     expect(setBadgeBackgroundColor).toHaveBeenCalled();
@@ -49,20 +49,20 @@ describe("tab-watcher", () => {
   it("broadcasts recommendations to sidepanel", async () => {
     await saveDraft({
       kind: "steps",
-      name: "PDD",
-      urlPatterns: ["https://*.yangkeduo.com/**"],
+      name: "Shop",
+      urlPatterns: ["https://*.example.com/**"],
       description: "",
       steps: [{ kind: "tool", tool: "snapshotDOM", args: {} }],
       outputSchema: {}
     });
-    const url = "https://mobile.yangkeduo.com/goods.html";
+    const url = "https://shop.example.com/goods.html";
     await refreshRecommendations(9, url);
     expect(sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "tabs.recommendations",
         tabId: 9,
         url,
-        tools: expect.arrayContaining([expect.objectContaining({ name: "PDD" })])
+        tools: expect.arrayContaining([expect.objectContaining({ name: "Shop" })])
       })
     );
   });

@@ -20,11 +20,11 @@ describe("PresetSchema", () => {
 
   it("accepts a valid tool preset", () => {
     const raw = {
-      id: "pdd-goods-collect",
-      name: "拼多多采集",
+      id: "example-product-collect",
+      name: "商品采集示例",
       description: "主图+评论",
       category: "ecommerce",
-      urlPatterns: ["https://mobile.pinduoduo.com/goods.html?**"],
+      urlPatterns: ["https://shop.example.com/products/**"],
       version: 1,
       kind: "tool",
       steps: [{ kind: "tool", tool: "snapshotDOM", args: {} }]

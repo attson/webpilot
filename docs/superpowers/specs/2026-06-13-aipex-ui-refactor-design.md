@@ -41,13 +41,13 @@
 ```
 ┌──────────────────────────────────────────────────┐
 │ AtWebPilot          + ⏱ 🧰 ⚙ 💭•                │  header title 行
-│ ● mobile.pinduoduo.com/goods.html · Tab #142     │  tab 身份行
+│ ● shop.example.com/goods.html · Tab #142     │  tab 身份行
 ├──────────────────────────────────────────────────┤
 │                                                  │
 │      ┌────────────────────────────────┐          │
 │      │ 此页有 1 个匹配工具              │          │
 │      │ ┌──────────────────────────┐  │          │  messages 区
-│      │ │ pdd 竞品信息采集 v3 [运行] │  │          │  （空态：suggestions）
+│      │ │ shop 竞品信息采集 v3 [运行] │  │          │  （空态：suggestions）
 │      │ │ 已运行 7 次 · 平均 4.2s   │  │          │
 │      │ └──────────────────────────┘  │          │
 │      │ 或用 @ 引用其他 tab / 工具…    │          │
@@ -195,7 +195,7 @@
 - 多行 textarea，自适应高度（min 56px, max 200px）
 - `@` 触发 `MentionPicker`（弹层 popover，键盘可导航）：
   - 仅 1 个 tab：`Tabs`（可选项 = 当前 chrome 中其它可见 tab，行为 = 原 `TabPicker` 替代品）
-  - 选项点击 = 插入 `<mention type="tab" id="142" label="pdd"/>` 标记到 textarea
+  - 选项点击 = 插入 `<mention type="tab" id="142" label="shop"/>` 标记到 textarea
   - 序列化进 user message 作为引用块
 - @ Tools / History / Skills 后续迭代再开（§15）；本次菜单不出这 3 类标签
 - `Enter` 发送，`Shift+Enter` 换行

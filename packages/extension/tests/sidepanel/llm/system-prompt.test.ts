@@ -66,9 +66,9 @@ describe("buildSystemPrompt — context", () => {
   it("lists saved tools matching the URL", () => {
     const p = buildSystemPrompt({
       url: "https://example.com",
-      savedTools: [{ name: "pdd-collect", description: "采前 50 条", version: 3 }],
+      savedTools: [{ name: "shop-collect", description: "采前 50 条", version: 3 }],
     });
-    expect(p).toContain("pdd-collect");
+    expect(p).toContain("shop-collect");
     expect(p).toContain("v3");
   });
 });

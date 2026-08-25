@@ -6,7 +6,7 @@
 
 ## 1. 背景与目标
 
-用户在浏览拼多多（PDD）等电商页面时，希望让 AI 帮忙采集主图、详情图、评论等内容。同一类页面的采集逻辑通常是稳定的 —— 一旦某次采集成功，之后只要页面没改版就可以**固化为可复用的工具**直接重放，不必每次都让 AI 重新分析。
+用户在浏览商品详情等电商页面时，希望让 AI 帮忙采集主图、详情图、评论等内容。同一类页面的采集逻辑通常是稳定的 —— 一旦某次采集成功，之后只要页面没改版就可以**固化为可复用的工具**直接重放，不必每次都让 AI 重新分析。
 
 设计目标：
 
@@ -14,7 +14,7 @@
 - **每一步可审阅**：AI 写出的代码、要点的按钮、要发的请求，执行前必须能看到
 - **成功一次 = 一个工具**：采集流程被结构化记录、可保存、可重放
 - **下次直接用工具**：URL 模式匹配，访问同类页面时插件自动提示可用工具
-- **PDD 优先，不锁站点**：架构对站点无假设；可扩展到淘宝、京东、Amazon 等
+- **通用优先，不锁站点**：架构对站点无假设；可扩展到淘宝、京东、Amazon 等
 
 非目标：
 
@@ -33,9 +33,9 @@
 | 交付形式 | 侧边面板展示 + 一键导出 JSON/CSV | 个人使用、按页处理 |
 | 工具匹配 | URL 模式匹配（glob） | 简单可靠，命中后才提醒 |
 | 失败恢复 | 报错 + 手动调 AI 修复，新版本与旧版本并存 | 保持人在回路 |
-| 适用范围 | PDD 优先，架构通用 | 站点无关的核心抽象 |
+| 适用范围 | 任意网页，架构通用 | 站点无关的核心抽象 |
 | 浏览器 | Chromium MV3（Chrome / Edge / Arc / Brave） | 主流且统一 API |
-| 多步流程 | 支持（滚动、等待、点击、拦截 API） | PDD 评论/详情图懒加载 |
+| 多步流程 | 支持（滚动、等待、点击、拦截 API） | 商品评论/详情图懒加载 |
 | 图片导出 | 仅 URL 列表（含元信息） | 快、零跨域负担 |
 | 安全模型 | 执行前必须人工预览危险步骤 | 避免 AI 误访 cookie/发请求 |
 
@@ -77,8 +77,8 @@
 // 一个工具 = URL 模式 + 有序 Step 列表 + 输出 schema
 type Tool = {
   id: string;                    // uuid
-  name: string;                  // 例: "PDD 详情页采集器"
-  urlPatterns: string[];         // 例: ["https://mobile.yangkeduo.com/goods*.html"]
+  name: string;                  // 例: "商品详情页采集器"
+  urlPatterns: string[];         // 例: ["https://shop.example.com/goods*.html"]
   description: string;           // AI 生成 + 用户可改
   steps: Step[];                 // 当前主线版本步骤
   outputSchema: JsonSchema;      // 例: { mainImages: string[], reviews: {...}[] }
@@ -93,7 +93,7 @@ type ToolVersion = {
   steps: Step[];
   outputSchema: JsonSchema;
   createdAt: number;
-  note?: string;                 // 例: "PDD 评论 selector 改版后修复"
+  note?: string;                 // 例: "商品评论 selector 改版后修复"
 };
 
 type Step =
@@ -148,7 +148,7 @@ type RunRecord = {
 ### 5.1 首次采集（AI 模式）
 
 ```
-用户在 PDD 详情页 → 打开侧边面板
+用户在商品详情页 → 打开侧边面板
    │
    ▼
 [侧边面板] 输入: "把主图、详情图、前 50 条评论拿出来"
@@ -199,7 +199,7 @@ type RunRecord = {
 ### 5.3 重放（直接用工具）
 
 ```
-打开匹配 URL 的页面 → 侧边面板顶部出现 "▶ 运行: PDD 详情页采集器"
+打开匹配 URL 的页面 → 侧边面板顶部出现 "▶ 运行: 商品详情页采集器"
    │
    ▼
 [Step Runner] 顺序执行 step[]
@@ -227,7 +227,7 @@ type RunRecord = {
 
 MV3 content script 默认在 **isolated world**：能访问页面 DOM，但拿不到页面 JS 变量、不会被页面脚本污染。**Step Runner 本身住在 isolated world**。
 
-`runJS` 步骤里 AI 生成的代码必须能访问页面级变量（PDD 把数据塞在 `window.rawData`），所以通过 `chrome.scripting.executeScript({ world: "MAIN", func, args })` 注入到 MAIN world。注入函数包一层壳，参数取 step 的 `args` 和已 bind 的变量，返回值序列化为 JSON 回灌到 isolated world。
+`runJS` 步骤里 AI 生成的代码必须能访问页面级变量（页面把数据塞在 `window.rawData`），所以通过 `chrome.scripting.executeScript({ world: "MAIN", func, args })` 注入到 MAIN world。注入函数包一层壳，参数取 step 的 `args` 和已 bind 的变量，返回值序列化为 JSON 回灌到 isolated world。
 
 ### 6.2 三类工具，三个权限等级
 
@@ -252,8 +252,8 @@ MV3 content script 默认在 **isolated world**：能访问页面 DOM，但拿�
 
 走 background：
 
-- `manifest.host_permissions` 默认仅声明 `*://*.yangkeduo.com/*` 和 `*://*.pinduoduo.com/*`
-- 扩展到通用站点时弹"是否授权访问 example.com"，通过 `chrome.permissions.request` 动态加
+- `manifest.host_permissions` 声明通用的 `http://*/*` 和 `https://*/*`
+- 浏览器内置页等受限页面仍遵循 Chromium 的注入限制
 - 默认 `credentials: 'omit'`；要带 cookie 必须工具创建时显式勾选并打 dangerous 标
 
 ### 6.5 时长 / 重试
@@ -388,7 +388,7 @@ atwebpilot2/
 │  │  ├─ static-scan.test.ts
 │  │  └─ runner.test.ts           # 用 happy-dom 跑 step runner
 │  └─ e2e/                        # playwright + extension loadExtension
-│     ├─ pdd-detail.spec.ts       # 录一份 PDD 详情页快照本地服务，跑全流程
+│     ├─ shop-detail.spec.ts       # 录一份 商品详情页快照本地服务，跑全流程
 │     └─ tool-replay.spec.ts
 │
 └─ docs/
@@ -409,7 +409,7 @@ atwebpilot2/
 |---|---|---|
 | 单元 | vitest + happy-dom | url-pattern、static-scan、runner（mock chrome.scripting） |
 | 集成 | vitest + fake-indexeddb | tools.ts / runs.ts / export-import CRUD + version 追加 |
-| e2e | playwright loadExtension + 本地静态站点 | 录两个 PDD 页面快照（详情页 + 评论翻页）作 fixture，跑 AI 模式（mock LLM 回固定 tool_calls）和重放模式 |
+| e2e | playwright loadExtension + 本地静态站点 | 录两个商品页面快照（详情页 + 评论翻页）作 fixture，跑 AI 模式（mock LLM 回固定 tool_calls）和重放模式 |
 
 LLM 真接入用最便宜的 Haiku，e2e 默认 mock；冒烟跑一次真 LLM 留 manual。
 

@@ -1062,7 +1062,7 @@ git commit -am "refactor(sidepanel): drop unused approveAllSafe from SessionData
   - Click each header icon → drawer opens, ESC closes
   - Click permission pill → 4 modes shown; pick "全自动" → modal appears
   - Shift+Tab in input area cycles modes (skip if cursor in textarea)
-  - Visit `mobile.pinduoduo.com/goods.html` with a saved `pdd` tool → suggestion card appears
+  - Visit `shop.example.com/goods.html` with a saved `shop` tool → suggestion card appears
   - Type a prompt → AI runs → step cards show → after completion `SaveAsToolCard` appears at bottom
   - Check IDB persistence: switch tabs, return — session restored
 - [ ] **Step 5:** If smoke passes, no commit needed; if any fix needed, fix and commit.

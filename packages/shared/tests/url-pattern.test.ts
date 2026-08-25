@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { compilePattern, matchesAny } from "../src/url-pattern";
 
 describe("url-pattern", () => {
-  it("compilePattern matches PDD goods page", () => {
-    const re = compilePattern("https://mobile.yangkeduo.com/goods*.html*");
-    expect(re.test("https://mobile.yangkeduo.com/goods.html?id=1")).toBe(true);
-    expect(re.test("https://mobile.yangkeduo.com/goods_detail.html")).toBe(true);
+  it("compilePattern matches Shop goods page", () => {
+    const re = compilePattern("https://shop.example.com/goods*.html*");
+    expect(re.test("https://shop.example.com/goods.html?id=1")).toBe(true);
+    expect(re.test("https://shop.example.com/goods_detail.html")).toBe(true);
     expect(re.test("https://other.com/goods.html")).toBe(false);
   });
 
@@ -22,8 +22,8 @@ describe("url-pattern", () => {
   });
 
   it("matchesAny returns true if any pattern matches", () => {
-    const url = "https://mobile.yangkeduo.com/goods.html";
-    expect(matchesAny(url, ["https://other.com/*", "https://*.yangkeduo.com/**"])).toBe(true);
+    const url = "https://shop.example.com/goods.html";
+    expect(matchesAny(url, ["https://other.com/*", "https://*.example.com/**"])).toBe(true);
     expect(matchesAny(url, ["https://other.com/*"])).toBe(false);
   });
 

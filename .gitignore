@@ -9,6 +9,16 @@ coverage
 .superpowers/
 .playwright-mcp/
 
+# AI workflow drafts (local only)
+docs/tasks/
+.workflow-plan/
+docs/brainstorm/drafts/
+docs/brainstorm/notes/
+docs/superpowers/
+.claude/settings.local.json
+*.local
+*.local.*
+
 # docs-site VitePress
 docs-site/node_modules/
 docs-site/.vitepress/dist/

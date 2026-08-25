@@ -9,7 +9,7 @@
 
 当前 AtWebPilot 一个会话只能操作绑定的那个 tab（`sessionsByTab` + `currentTabId`，见 `2026-05-10-plan4-per-tab-sessions-design.md`）。但用户在做对比、汇总、跨页核对一类的分析时，常常需要把多个已打开 tab 的数据放到同一段对话里判断。例如：
 
-- 同款商品在拼多多 / 淘宝 / 天猫的价格、规格、评价横向对比
+- 同款商品在多个电商平台的价格、规格、评价横向对比
 - 同一篇报告分散在三个内部页面里，让 AI 汇总成一篇
 - 在 A tab 查到一条线索后，让 AI 顺着到 B、C tab 取证
 
@@ -164,7 +164,7 @@ sidepanel 收到 `tabs.spawned` 后：自动把新 tab 加入对应会话的 `at
 紧贴现有 "Tab #142 当前页 URL" 那一行之下：
 
 ```
-[Tab #142] mobile.pinduoduo.com/goods.html?…
+[Tab #142] shop.example.com/goods.html?…
 附加: [🛒 商品B ×] [🛒 商品C ×] [⚠ 商品D ×]  [+]
 ```
 
@@ -225,7 +225,7 @@ sidepanel 收到 `tabs.spawned` 后：自动把新 tab 加入对应会话的 `at
 
 ```
 [Current tab]
-#142 (focused): https://mobile.pinduoduo.com/goods.html?id=…
+#142 (focused): https://shop.example.com/goods.html?id=…
 
 [Attached tabs]
 #167 https://item.taobao.com/item.htm?id=…  (source: mention)

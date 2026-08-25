@@ -291,7 +291,7 @@ function fakeChrome(tabs: { id: number; url: string; title: string }[] = []) {
 beforeEach(() => {
   vi.stubGlobal("chrome", fakeChrome([
     { id: 1, url: "https://example.com", title: "Example" },
-    { id: 2, url: "https://www.pinduoduo.com/goods.html", title: "PDD goods" }
+    { id: 2, url: "https://shop.example.com/goods.html", title: "Shop goods" }
   ]));
 });
 
@@ -334,7 +334,7 @@ describe("buildHello", () => {
     });
     expect(payload.available_tabs).toEqual([
       { tab_id: "1", url: "https://example.com", title: "Example" },
-      { tab_id: "2", url: "https://www.pinduoduo.com/goods.html", title: "PDD goods" }
+      { tab_id: "2", url: "https://shop.example.com/goods.html", title: "Shop goods" }
     ]);
   });
 
@@ -342,12 +342,12 @@ describe("buildHello", () => {
     const payload = await buildHello({
       worker_id: "w",
       saved_tools: [
-        { id: "pdd_v3", version: 1, hash: "abc", url_pattern: ["https://*.pinduoduo.com/**"] }
+        { id: "shop_v3", version: 1, hash: "abc", url_pattern: ["https://*.example.com/**"] }
       ],
-      labels: ["chrome:macos", "logged-in:pdd"]
+      labels: ["chrome:macos", "logged-in:shop"]
     });
-    expect(payload.saved_tools[0].id).toBe("pdd_v3");
-    expect(payload.labels).toEqual(["chrome:macos", "logged-in:pdd"]);
+    expect(payload.saved_tools[0].id).toBe("shop_v3");
+    expect(payload.labels).toEqual(["chrome:macos", "logged-in:shop"]);
   });
 
   it("fingerprint has ext_hash/os/chrome fields filled", async () => {

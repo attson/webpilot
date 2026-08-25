@@ -133,7 +133,7 @@ export type PromptToolVersion = {
 
 ```
 AI 已生成提示词工具
-名称：PDD 商品评论采集
+名称：商品评论采集
 描述：在商品页采集主图、详情图、评论摘要并输出结构化 JSON。
 
 ▾ 提示词
@@ -146,7 +146,7 @@ AI 已生成提示词工具
 
 ```
 AI 已生成纯函数工具
-名称：PDD 商品基础信息提取
+名称：商品基础信息提取
 描述：从当前商品页 DOM/window.rawData 提取标题、图片、价格、评论信息。
 
 scan: caution uses-dom-query

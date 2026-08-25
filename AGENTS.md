@@ -41,7 +41,7 @@ atwebpilot2/                              # pnpm workspaces monorepo（Phase 0 �
 │  │     ├─ types.ts                  Tool(+origin?) / Step / RunRecord(+source, +healed?) / ChatMessage / Severity / ToolUsePart / JsonSchema / LlmSettings(+selfHealEnabled, +maxSelfHealOutputTokens)
 │  │     ├─ messages.ts               zod RPC schemas (sidepanel <-> bg <-> content)；含 ToolOriginSchema、presets.list/presets.materialize RPC
 │  │     ├─ preset.ts                 Plan 27：PresetSchema / PromptPreset / ToolPreset zod + TS types（discriminator "kind"）
-│  │     ├─ presets/                  静态 registry（无 IO）：`index.ts` 聚合 12 条 + `content/*.ts` + `ecommerce/*.ts`
+│  │     ├─ presets/                  静态 registry（无 IO）：`index.ts` 聚合 11 条 + `content/*.ts` + `ecommerce/*.ts`
 │  │     ├─ match-presets.ts          `matchPresetsByUrl(url, registry?) → Preset[]`；复用 url-pattern
 │  │     ├─ url-pattern.ts            glob → RegExp；`matchesAny(url, patterns)`
 │  │     ├─ static-scan.ts            runJS source → severity findings (regex rules)
