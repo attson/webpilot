@@ -30,6 +30,8 @@ export interface Deps {
   peek(): HubBundle | null;
   /** URL of the pairing page, once a hub exists. */
   pairUrl(): string | null;
+  /** Waits for the extension's HELLO when the browser is not connected yet. */
+  waitForWorker(timeoutMs?: number): Promise<string>;
 }
 
 /** Test helper: a Deps whose hub already exists. */
@@ -38,7 +40,8 @@ export function staticDeps(coordinator: Coordinator, hub: Hub, port = 0): Deps {
   return {
     ensure: async () => bundle,
     peek: () => bundle,
-    pairUrl: () => `http://127.0.0.1:${port}/pair`
+    pairUrl: () => `http://127.0.0.1:${port}/pair`,
+    waitForWorker: async () => singleWorkerId(coordinator, `http://127.0.0.1:${port}/pair`)
   };
 }
 
@@ -57,7 +60,9 @@ function singleWorkerId(c: Coordinator, pairUrl: string | null): string {
 
 export async function handleListTabs(deps: Deps): Promise<{ tabs: unknown[] }> {
   const { coordinator } = await deps.ensure();
-  const w = coordinator.workers.get(singleWorkerId(coordinator, deps.pairUrl()))!;
+  const workerId = await deps.waitForWorker();
+  const w = coordinator.workers.get(workerId);
+  if (!w) throw new Error(`worker ${workerId} disconnected while opening browser context`);
   return { tabs: w.available_tabs };
 }
 
@@ -66,7 +71,7 @@ export async function handleOpenSession(
   args: Record<string, unknown>
 ): Promise<{ session_id: string }> {
   const { coordinator } = await deps.ensure();
-  const worker_id = singleWorkerId(coordinator, deps.pairUrl());
+  const worker_id = await deps.waitForWorker();
   const tab_id = String(args.tab_id);
   const requested = Array.isArray(args.capabilities) ? (args.capabilities as unknown[]).map(String).filter(isCapability) : [];
   const scope = new Set<Capability>(requested.length ? requested : (CAPABILITIES as readonly Capability[]));

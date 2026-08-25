@@ -23,6 +23,8 @@ export type EnsureDeps = {
   processInfo?: ProcessInfo;
 };
 
+const DEFAULT_WORKER_WAIT_TIMEOUT_MS = 90_000;
+
 /**
  * Binds the websocket port on first use rather than at startup.
  *
@@ -35,7 +37,58 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
   let inflight: Promise<HubBundle> | null = null;
   let pairUrlValue: string | null = null;
   let opened = false;
+  let hubIsClosed = false;
+  let pendingDenial = false;
+  let workerWait: {
+    promise: Promise<string>;
+    resolve: (workerId: string) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  } | null = null;
   const info = d.processInfo ?? processInfo();
+
+  function connectedWorkerId(coordinator: HubBundle["coordinator"]): string | null {
+    const workers = coordinator.workers.list();
+    if (workers.length === 0) return null;
+    if (workers.length > 1) {
+      throw new Error("检测到多个浏览器连入；v1 仅支持单 worker，请只保留一个连接");
+    }
+    return workers[0].id;
+  }
+
+  function finishWorkerWait(result: { workerId: string } | { error: Error }): void {
+    const pending = workerWait;
+    if (!pending) return;
+    workerWait = null;
+    clearTimeout(pending.timer);
+    if ("workerId" in result) pending.resolve(result.workerId);
+    else pending.reject(result.error);
+  }
+
+  function notifyWorkerReady(coordinator: HubBundle["coordinator"]): void {
+    try {
+      const workerId = connectedWorkerId(coordinator);
+      if (workerId) finishWorkerWait({ workerId });
+    } catch (error) {
+      finishWorkerWait({ error: error instanceof Error ? error : new Error(String(error)) });
+    }
+  }
+
+  function pairingDenied(): void {
+    const error = new Error(
+      "用户拒绝了浏览器配对授权。" +
+        (pairUrlValue ? `配对页：${pairUrlValue}` : "")
+    );
+    if (workerWait) finishWorkerWait({ error });
+    else pendingDenial = true;
+  }
+
+  function hubClosed(): void {
+    hubIsClosed = true;
+    if (workerWait) {
+      finishWorkerWait({ error: new Error("浏览器配对服务已关闭。") });
+    }
+  }
 
   async function bind(): Promise<HubBundle> {
     const identity = loadOrCreateIdentity(d.identityDir);
@@ -68,12 +121,18 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
 
     saveLastPort(port, d.identityDir);
     const coordinator = new Coordinator({ hub, clock: d.clock, idGen: d.idGen });
-    installWire(hub, coordinator, d.clock);
+    installWire(hub, coordinator, d.clock, () => notifyWorkerReady(coordinator));
     pairUrlValue = `http://127.0.0.1:${port}/pair`;
     return { coordinator, hub, port };
 
     function common() {
-      return { token: d.token, clock: d.clock, idGen: d.idGen };
+      return {
+        token: d.token,
+        clock: d.clock,
+        idGen: d.idGen,
+        onPairingDenied: pairingDenied,
+        onClosed: hubClosed
+      };
     }
   }
 
@@ -94,10 +153,44 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
     return b;
   }
 
+  async function waitForWorker(timeoutMs = DEFAULT_WORKER_WAIT_TIMEOUT_MS): Promise<string> {
+    const { coordinator } = await ensure();
+    if (hubIsClosed) throw new Error("浏览器配对服务已关闭。");
+    const connected = connectedWorkerId(coordinator);
+    if (connected) return connected;
+    if (pendingDenial) {
+      pendingDenial = false;
+      throw new Error(
+        "用户拒绝了浏览器配对授权。" +
+          (pairUrlValue ? `配对页：${pairUrlValue}` : "")
+      );
+    }
+    if (workerWait) return workerWait.promise;
+
+    let resolve!: (workerId: string) => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<string>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    const timer = setTimeout(() => {
+      finishWorkerWait({
+        error: new Error(
+          `等待浏览器授权超时（${Math.ceil(timeoutMs / 1000)} 秒）。` +
+            (pairUrlValue ? `请在已打开的配对页 ${pairUrlValue} 完成授权后重试。` : "")
+        )
+      });
+    }, timeoutMs);
+    timer.unref?.();
+    workerWait = { promise, resolve, reject, timer };
+    return promise;
+  }
+
   return {
     ensure,
     peek: () => bundle,
     pairUrl: () => pairUrlValue,
+    waitForWorker,
     bound: () => bundle != null
   };
 }

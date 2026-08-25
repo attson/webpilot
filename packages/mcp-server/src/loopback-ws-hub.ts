@@ -1,6 +1,14 @@
 import { WebSocketServer, WebSocket } from "ws";
-import { createServer, type Server as HttpServer } from "node:http";
-import { GRACEFUL_CLOSE_CODE, GRACEFUL_CLOSE_REASON } from "@atwebpilot/shared/pairing";
+import {
+  createServer,
+  type Server as HttpServer,
+  type ServerResponse
+} from "node:http";
+import {
+  GRACEFUL_CLOSE_CODE,
+  GRACEFUL_CLOSE_REASON,
+  type PairPayload
+} from "@atwebpilot/shared/pairing";
 import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import {
@@ -33,7 +41,11 @@ export interface LoopbackWSHubOpts {
    * Supplies the payload served at GET /pair. Omitted in tests that only
    * exercise the websocket surface.
    */
-  pairPayload?: () => unknown;
+  pairPayload?: () => PairPayload;
+  /** A matched denial can cancel a pending worker wait, but can never approve it. */
+  onPairingDenied?: () => void;
+  /** Lets the owner release pending lifecycle waits when the hub stops. */
+  onClosed?: () => void;
 }
 
 type Pending = {
@@ -56,6 +68,7 @@ export class LoopbackWSHub implements WSHub {
   private execTimeoutMs: number;
   private keepaliveIntervalMs: number;
   private keepaliveTimers = new Map<WebSocket, ReturnType<typeof setInterval>>();
+  private closedNotified = false;
 
   constructor(private opts: LoopbackWSHubOpts) {
     this.execTimeoutMs = opts.execTimeoutMs ?? 30000;
@@ -101,13 +114,14 @@ export class LoopbackWSHub implements WSHub {
 
   /** Serves the pairing page; everything else is a 404. */
   private onHttpRequest(
-    req: { url?: string },
-    res: {
-      writeHead: (code: number, headers?: Record<string, string>) => void;
-      end: (body?: string) => void;
-    }
+    req: IncomingMessage,
+    res: ServerResponse
   ): void {
     const path = (req.url ?? "").split("?")[0];
+    if (path === "/pair/decision" && req.method === "POST") {
+      void this.onPairDecision(req, res);
+      return;
+    }
     if (path !== "/pair") {
       res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       res.end("not found");
@@ -123,7 +137,37 @@ export class LoopbackWSHub implements WSHub {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store"
     });
-    res.end(renderPairPage(payload as never));
+    res.end(renderPairPage(payload));
+  }
+
+  private async onPairDecision(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    try {
+      let body = "";
+      for await (const chunk of req) {
+        body += chunk.toString();
+        if (body.length > 4096) throw new Error("pairing decision too large");
+      }
+      const decision = JSON.parse(body) as Record<string, unknown>;
+      const payload = this.opts.pairPayload?.();
+      const matches =
+        payload &&
+        decision.v === 1 &&
+        decision.decision === "denied" &&
+        decision.sessionId === payload.sessionId &&
+        decision.installId === payload.installId &&
+        decision.secret === payload.secret;
+      if (!matches) {
+        res.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
+        res.end("pairing decision rejected");
+        return;
+      }
+      this.opts.onPairingDenied?.();
+      res.writeHead(204);
+      res.end();
+    } catch {
+      res.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+      res.end("invalid pairing decision");
+    }
   }
 
   /**
@@ -143,6 +187,14 @@ export class LoopbackWSHub implements WSHub {
   }
 
   close(): Promise<void> {
+    if (!this.closedNotified) {
+      this.closedNotified = true;
+      try {
+        this.opts.onClosed?.();
+      } catch {
+        // Lifecycle observers must not prevent socket cleanup.
+      }
+    }
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);
       p.reject(new Error("hub closing"));

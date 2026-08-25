@@ -192,10 +192,13 @@ not the whole history.
 Several Claude Code sessions can be attached to the same browser at once, each
 through its own connection. Two consequences worth knowing:
 
-- **The first call that needs the browser may fail with a pairing message.** The
-  MCP server binds its port lazily and opens a confirmation page in the user's
-  browser. Tell the user to click Allow, then retry the same call. Once approved,
-  every later session on that machine connects silently.
+- **The first call that needs the browser waits for pairing.** The MCP server
+  binds its port lazily and opens a confirmation page in the user's browser.
+  Ask the user only to click Allow; keep the original call pending. It resumes
+  automatically when the extension connects, so do not ask the user to report
+  success or manually retry. Pairing denial or the 90-second timeout returns an
+  actionable error. Once approved, every later session on that machine connects
+  silently.
 - **Pick a free tab.** `list_tabs` marks tabs held by other sessions as `busy`.
   Prefer an unowned tab, or open your own — two agents typing into one form
   produces failures that look like your own tool calls not working.

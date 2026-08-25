@@ -3,8 +3,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { FakeClock, FakeIdGen } from "@atwebpilot/coordinator";
+import { PROTOCOL_VERSION, type Hello } from "@atwebpilot/shared/protocol";
+import { WebSocket } from "ws";
 import { createHubEnsurer } from "../src/ensure-hub";
-import { loadLastPort, saveLastPort } from "../src/identity";
+import { loadLastPort, loadOrCreateIdentity, saveLastPort } from "../src/identity";
 
 const dirs: string[] = [];
 const made: Array<ReturnType<typeof createHubEnsurer>> = [];
@@ -14,6 +16,22 @@ const tmp = () => {
   dirs.push(d);
   return d;
 };
+
+function helloMsg(): Hello {
+  return {
+    type: "HELLO",
+    nonce: "h1",
+    ts: 1,
+    protocol_version: PROTOCOL_VERSION,
+    worker_id: "w1",
+    fingerprint: { ext_hash: "x", os: "linux", chrome: "120" },
+    capabilities: ["read:dom"],
+    attended: true,
+    available_tabs: [{ tab_id: "42", url: "https://example.org", title: "Ex" }],
+    saved_tools: [],
+    labels: []
+  };
+}
 
 function makeEnsurer(opts: { openUrl?: (u: string) => void; dir?: string; explicitPort?: number }) {
   const e = createHubEnsurer({
@@ -66,6 +84,134 @@ describe("createHubEnsurer", () => {
     await e.ensure();
     expect(opened).toHaveLength(1);
     expect(opened[0]).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/pair$/);
+  });
+
+  it("keeps the first browser call pending until HELLO registers a worker", async () => {
+    const e = makeEnsurer({});
+    const { port } = await e.ensure();
+    const waiting = e.waitForWorker(1_000);
+    let settled = false;
+    void waiting.finally(() => { settled = true; });
+
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/worker`);
+    await new Promise<void>((resolve, reject) => {
+      ws.on("open", resolve);
+      ws.on("error", reject);
+    });
+    ws.send(JSON.stringify(helloMsg()));
+
+    await expect(waiting).resolves.toBe("w1");
+    ws.close();
+  });
+
+  it("ends the pending browser call when the trusted pairing UI reports denial", async () => {
+    const dir = tmp();
+    const e = makeEnsurer({ dir });
+    const { port } = await e.ensure();
+    const identity = loadOrCreateIdentity(dir);
+    const waiting = e.waitForWorker(1_000);
+    const denied = expect(waiting).rejects.toThrow(/拒绝/);
+
+    const response = await fetch(`http://127.0.0.1:${port}/pair/decision`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        v: 1,
+        decision: "denied",
+        sessionId: "sess_test",
+        installId: identity.installId,
+        secret: identity.secret
+      })
+    });
+
+    expect(response.status).toBe(204);
+    await denied;
+  });
+
+  it("shares one pending wait between concurrent browser calls", async () => {
+    const e = makeEnsurer({});
+    const { port } = await e.ensure();
+    const first = e.waitForWorker(1_000);
+    const second = e.waitForWorker(1_000);
+
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/worker`);
+    await new Promise<void>((resolve, reject) => {
+      ws.on("open", resolve);
+      ws.on("error", reject);
+    });
+    ws.send(JSON.stringify(helloMsg()));
+
+    await expect(Promise.all([first, second])).resolves.toEqual(["w1", "w1"]);
+    ws.close();
+  });
+
+  it("times out with the pairing URL and allows a later wait to succeed", async () => {
+    const e = makeEnsurer({});
+    const { port } = await e.ensure();
+
+    await expect(e.waitForWorker(5)).rejects.toThrow(
+      new RegExp(`等待浏览器授权超时.*127\\.0\\.0\\.1:${port}/pair`)
+    );
+
+    const retry = e.waitForWorker(1_000);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/worker`);
+    await new Promise<void>((resolve, reject) => {
+      ws.on("open", resolve);
+      ws.on("error", reject);
+    });
+    ws.send(JSON.stringify(helloMsg()));
+    await expect(retry).resolves.toBe("w1");
+    ws.close();
+  });
+
+  it("does not let an HTTP page result forge pairing success", async () => {
+    const dir = tmp();
+    const e = makeEnsurer({ dir });
+    const { port } = await e.ensure();
+    const identity = loadOrCreateIdentity(dir);
+    const waiting = e.waitForWorker(1_000);
+
+    const response = await fetch(`http://127.0.0.1:${port}/pair/decision`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        v: 1,
+        decision: "approved",
+        sessionId: "sess_test",
+        installId: identity.installId,
+        secret: identity.secret
+      })
+    });
+    expect(response.status).toBe(403);
+
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/worker`);
+    await new Promise<void>((resolve, reject) => {
+      ws.on("open", resolve);
+      ws.on("error", reject);
+    });
+    ws.send(JSON.stringify(helloMsg()));
+    await expect(waiting).resolves.toBe("w1");
+    ws.close();
+  });
+
+  it("cancels the pending wait when the hub closes", async () => {
+    const e = makeEnsurer({});
+    const { hub } = await e.ensure();
+    const waiting = e.waitForWorker(10_000).then(
+      () => "resolved",
+      (error: Error) => error.message
+    );
+
+    await hub.close?.();
+    const outcome = await Promise.race([
+      waiting,
+      new Promise<string>((resolve) => setTimeout(() => resolve("still-pending"), 30))
+    ]);
+
+    expect(outcome).toMatch(/关闭/);
   });
 
   it("records the port it actually bound", async () => {

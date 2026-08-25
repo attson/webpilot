@@ -19,12 +19,18 @@ export function helloToWorker(h: Hello, now: number): Worker {
   };
 }
 
-export function installWire(hub: LoopbackWSHub, coordinator: Coordinator, clock: Clock): void {
+export function installWire(
+  hub: LoopbackWSHub,
+  coordinator: Coordinator,
+  clock: Clock,
+  onWorkerReady?: (workerId: string) => void
+): void {
   hub.onMessage((worker_id, msg) => {
     switch (msg.type) {
       case "HELLO":
         coordinator.unregisterWorker(msg.worker_id); // idempotent; clears prior registration on reconnect
         coordinator.registerWorker(helloToWorker(msg, clock.now()));
+        onWorkerReady?.(msg.worker_id);
         break;
       case "PING": coordinator.heartbeatWorker(worker_id); break;
       case "TABS_UPDATE": {

@@ -49,6 +49,14 @@ describe("renderPairPage", () => {
     expect(html).toContain('e.data.reason === "denied"');
     expect(html).toContain("连接扩展失败");
   });
+
+  it("reports explicit denial to the local server so the pending call can stop", () => {
+    const html = renderPairPage(payload);
+    expect(html).toContain('fetch("/pair/decision"');
+    expect(html).toContain('decision: "denied"');
+    expect(html).toContain("sessionId: payload.sessionId");
+    expect(html).toContain("secret: payload.secret");
+  });
 });
 
 describe("renderPairPage — install ordering", () => {

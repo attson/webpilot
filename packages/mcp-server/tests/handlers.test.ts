@@ -40,12 +40,60 @@ describe("control-plane handlers", () => {
     expect(s.scope.has("submit:form")).toBe(true);
   });
 
+  it("open_session waits for the worker before creating the session", async () => {
+    const clock = new FakeClock(0);
+    const coordinator = new Coordinator({
+      hub: { send: async () => undefined } as any,
+      clock,
+      idGen: new FakeIdGen()
+    });
+    const bundle = { coordinator, hub: {} as any, port: 8787 };
+    const deps: Deps = {
+      ensure: async () => bundle,
+      peek: () => bundle,
+      pairUrl: () => "http://127.0.0.1:8787/pair",
+      waitForWorker: async () => {
+        coordinator.registerWorker(fakeWorker());
+        return "w1";
+      }
+    };
+
+    const { session_id } = await handleOpenSession(deps, { tab_id: "42" });
+    expect(coordinator.sessions.get(session_id)?.worker_id).toBe("w1");
+  });
+
   it("list_tabs errors when no worker connected", async () => {
     const clock = new FakeClock(0);
     const coordinator = new Coordinator({ hub: { send: async () => undefined } as any, clock, idGen: new FakeIdGen() });
     await expect(handleListTabs(staticDeps(coordinator, {} as any))).rejects.toThrow(
       /没有浏览器连入/
     );
+  });
+
+  it("list_tabs resumes the original call after waiting for a worker", async () => {
+    const clock = new FakeClock(0);
+    const coordinator = new Coordinator({
+      hub: { send: async () => undefined } as any,
+      clock,
+      idGen: new FakeIdGen()
+    });
+    const bundle = { coordinator, hub: {} as any, port: 8787 };
+    let waited = false;
+    const deps: Deps = {
+      ensure: async () => bundle,
+      peek: () => bundle,
+      pairUrl: () => "http://127.0.0.1:8787/pair",
+      waitForWorker: async () => {
+        waited = true;
+        coordinator.registerWorker(fakeWorker());
+        return "w1";
+      }
+    };
+
+    await expect(handleListTabs(deps)).resolves.toEqual({
+      tabs: [{ tab_id: "42", url: "https://example.org", title: "Ex" }]
+    });
+    expect(waited).toBe(true);
   });
 
   it("close_session closes the session", async () => {
