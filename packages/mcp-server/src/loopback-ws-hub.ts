@@ -10,8 +10,8 @@ import {
   type ClientToServer,
   type ServerToClient,
   type Result,
+  type Exec,
 } from "@atwebpilot/shared/protocol";
-import type { Json } from "@atwebpilot/shared";
 import type { WSHub, Clock, IdGen } from "@atwebpilot/coordinator";
 import { renderPairPage } from "./pair-page";
 
@@ -310,7 +310,7 @@ export class LoopbackWSHub implements WSHub {
     params: {
       session_id: string;
       tab_id: string;
-      step: { kind: "tool"; tool: string; args: unknown };
+      step: Exec["step"];
     }
   ): Promise<Result> {
     const socket = this.byWorker.get(worker_id);
@@ -333,7 +333,7 @@ export class LoopbackWSHub implements WSHub {
         req_id,
         session_id: params.session_id,
         tab_id: params.tab_id,
-        step: { kind: "tool", tool: params.step.tool, args: params.step.args as Json },
+        step: params.step,
       });
       // I1: TOCTOU guard — the socket may have closed during rawSend (and onSocketClose
       // may have already run).  If the socket is no longer the current one for this

@@ -13,6 +13,7 @@ describe("capabilityForTool", () => {
     expect(capabilityForTool("snapshotDOM")).toBe("read:dom");
     expect(capabilityForTool("getValue")).toBe("read:dom");
     expect(capabilityForTool("extractFormState")).toBe("read:dom");
+    expect(capabilityForTool("inspectElement")).toBe("read:dom");
   });
   it("read:dom for page-index inspectors", () => {
     expect(capabilityForTool("createPageIndex")).toBe("read:dom");

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { handleExec } from "../../src/background/coordinator-exec";
 import { PROTOCOL_VERSION } from "@atwebpilot/shared/protocol";
 import type { Exec } from "@atwebpilot/shared/protocol";
@@ -11,6 +11,10 @@ import { runOneStep } from "../../src/background/rpc-handlers";
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 const baseExec: Exec = {
@@ -65,5 +69,18 @@ describe("handleExec", () => {
     const r = await handleExec(baseExec);
     expect(r.type).toBe("RESULT");
     expect(r.protocol_version).toBe(PROTOCOL_VERSION);
+  });
+
+  it("returns a PageScriptError before the hub timeout when a step never settles", async () => {
+    vi.useFakeTimers();
+    (runOneStep as unknown as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => undefined));
+    const pending = handleExec({
+      ...baseExec,
+      step: { kind: "js", source: "await new Promise(() => {})", timeoutMs: 1000 }
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    const result = await pending;
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toContain("step timeout after 1000ms");
   });
 });

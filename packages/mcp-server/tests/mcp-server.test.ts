@@ -20,9 +20,9 @@ function deps() {
 }
 
 describe("buildToolList", () => {
-  it("lists skill bundle + 4 control + 54 browser tools, each with inputSchema", () => {
+  it("lists skill bundle + 4 control + 55 browser tools, each with inputSchema", () => {
     const tools = buildToolList();
-    expect(tools.length).toBe(59);
+    expect(tools.length).toBe(60);
     const names = tools.map((t) => t.name);
     expect(names).toContain("atwebpilot_skill_read");
     expect(names).toContain("list_tabs");
@@ -57,6 +57,50 @@ describe("dispatchCall", () => {
     const session_id = JSON.parse(textOf(open)).session_id;
     const r = await dispatchCall(d, "browser_snapshotDOM", { session_id });
     expect(r.isError).toBeFalsy();
+  });
+
+  it("binds switchToTab and closeTab to the session tab", async () => {
+    const coordinator = new Coordinator({
+      hub: { send: async () => undefined } as any,
+      clock: new FakeClock(0),
+      idGen: new FakeIdGen()
+    });
+    coordinator.registerWorker(fakeWorker());
+    const calls: Array<{ step: unknown }> = [];
+    const d = staticDeps(coordinator, {
+      exec: async (_workerId: string, params: { step: unknown }) => {
+        calls.push(params);
+        return okResult;
+      }
+    } as any);
+    const open = await dispatchCall(d, "open_session", { tab_id: "42" });
+    const session_id = JSON.parse(textOf(open)).session_id;
+
+    await dispatchCall(d, "browser_switchToTab", { session_id });
+    await dispatchCall(d, "browser_closeTab", { session_id });
+
+    expect(calls.map((call) => call.step)).toEqual([
+      { kind: "tool", tool: "switchToTab", args: { tabId: 42 } },
+      { kind: "tool", tool: "closeTab", args: { tabId: 42 } }
+    ]);
+  });
+
+  it("classifies read-only runJS as scanned and cookie access as unsafe", async () => {
+    const coordinator = new Coordinator({
+      hub: { send: async () => undefined } as any,
+      clock: new FakeClock(0),
+      idGen: new FakeIdGen()
+    });
+    coordinator.registerWorker(fakeWorker());
+    const d = staticDeps(coordinator, { exec: async () => okResult } as any);
+    const open = await dispatchCall(d, "open_session", { tab_id: "42" });
+    const session_id = JSON.parse(textOf(open)).session_id;
+
+    await dispatchCall(d, "browser_runJS", { session_id, source: "return getComputedStyle(document.body).display" });
+    expect(coordinator.quotaFor(session_id)?.dangerous_used).toBe(0);
+
+    await dispatchCall(d, "browser_runJS", { session_id, source: "return document.cookie" });
+    expect(coordinator.quotaFor(session_id)?.dangerous_used).toBe(1);
   });
 });
 

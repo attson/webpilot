@@ -29,11 +29,18 @@ function harness(metrics: Metrics) {
 }
 
 let captureVisibleTab: ReturnType<typeof vi.fn>;
+let updateTab: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   captureVisibleTab = vi.fn(async () => "data:image/png;base64,QUJD");
+  updateTab = vi.fn(async (tabId: number) => ({ id: tabId, windowId: 9 }));
   globalThis.chrome = {
-    tabs: { get: vi.fn(async () => ({ windowId: 9 })), captureVisibleTab }
+    tabs: {
+      get: vi.fn(async (tabId: number) => ({ id: tabId, windowId: 9, active: tabId === 2 })),
+      query: vi.fn(async () => [{ id: 2, windowId: 9, active: true }]),
+      update: updateTab,
+      captureVisibleTab
+    }
   } as unknown as typeof chrome;
 });
 
@@ -43,6 +50,15 @@ afterEach(() => {
 });
 
 describe("screenshot — fullPage", () => {
+  it("activates the session tab for capture and restores the previous tab", async () => {
+    harness({ scrollHeight: 800, clientHeight: 800, clientWidth: 1000, scrollY: 0 });
+    await screenshot({ fullPage: true } as never, 1);
+    expect(updateTab.mock.calls).toEqual([
+      [1, { active: true }],
+      [2, { active: true }]
+    ]);
+  });
+
   it("captures one band per viewport height", async () => {
     const h = harness({ scrollHeight: 2400, clientHeight: 800, clientWidth: 1000, scrollY: 0 });
     const out = (await screenshot({ fullPage: true } as never, 1)) as unknown as {
@@ -67,6 +83,7 @@ describe("screenshot — fullPage", () => {
     captureVisibleTab.mockRejectedValueOnce(new Error("quota exceeded"));
     await expect(screenshot({ fullPage: true } as never, 1)).rejects.toThrow("quota");
     expect(h.scrolls.at(-1)).toBe(120);
+    expect(updateTab).toHaveBeenLastCalledWith(2, { active: true });
   });
 
   it("caps the band count and flags truncation", async () => {

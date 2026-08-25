@@ -293,7 +293,7 @@ export async function setRecorderPolicy(tabId: number, enabled: boolean): Promis
 const READ_TOOLS = new Set([
   "snapshotDOM", "querySelector", "querySelectorAll", "extractText", "extractImages",
   "getValue", "extractFormState", "takeSnapshot", "getPageInfo", "findElements",
-  "createPageIndex", "searchPageIndex", "readPageBlock", "extractPageFields", "waitFor"
+  "inspectElement", "createPageIndex", "searchPageIndex", "readPageBlock", "extractPageFields", "waitFor"
 ]);
 const NO_INJECTION_TOOLS = new Set(["listTabs", "searchBookmarks", "searchHistory", "screenshot"]);
 const DIAGNOSTIC_TOOLS = new Set([

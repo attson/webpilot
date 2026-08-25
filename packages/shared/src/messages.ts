@@ -57,7 +57,8 @@ export const StepSchema = z.discriminatedUnion("kind", [
       "resize",
       "drag",
       "drop",
-      "findElements"
+      "findElements",
+      "inspectElement"
     ]),
     args: z.unknown(),
     bindResultTo: z.string().optional(),

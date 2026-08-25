@@ -50,20 +50,39 @@ export async function screenshot(raw: Json, tabId: number): Promise<Json> {
     scale?: number;
   };
 
-  if (a.fullPage) return captureFullPage(raw, tabId, d);
+  return withActiveTab(tabId, async () => {
+    if (a.fullPage) return captureFullPage(raw, tabId, d);
 
-  const shot = await captureVisualEvidence({
-    raw,
-    defaultTabId: tabId,
-    getTab: async (id) => {
-      const tab = await chrome.tabs.get(id);
-      if (tab.windowId == null) throw new Error(`screenshot: tab ${id} has no window`);
-      return { windowId: tab.windowId };
-    },
-    captureVisibleTab: (windowId) => chrome.tabs.captureVisibleTab(windowId, { format: "png" }),
-    runStep: d.runStep
+    const shot = await captureVisualEvidence({
+      raw,
+      defaultTabId: tabId,
+      getTab: async (id) => {
+        const tab = await chrome.tabs.get(id);
+        if (tab.windowId == null) throw new Error(`screenshot: tab ${id} has no window`);
+        return { windowId: tab.windowId };
+      },
+      captureVisibleTab: (windowId) => chrome.tabs.captureVisibleTab(windowId, { format: "png" }),
+      runStep: d.runStep
+    });
+    return shot as unknown as Json;
   });
-  return shot as unknown as Json;
+}
+
+async function withActiveTab<T>(tabId: number, capture: () => Promise<T>): Promise<T> {
+  const target = await chrome.tabs.get(tabId);
+  if (target.windowId == null) throw new Error(`screenshot: tab ${tabId} has no window`);
+  const [previous] = await chrome.tabs.query({ windowId: target.windowId, active: true });
+  const previousTabId = previous?.id;
+  const switched = previousTabId !== tabId;
+
+  if (switched) await chrome.tabs.update(tabId, { active: true });
+  try {
+    return await capture();
+  } finally {
+    if (switched && previousTabId != null) {
+      await chrome.tabs.update(previousTabId, { active: true }).catch(() => undefined);
+    }
+  }
 }
 
 async function captureFullPage(raw: Json, tabId: number, d: CaptureDeps): Promise<Json> {

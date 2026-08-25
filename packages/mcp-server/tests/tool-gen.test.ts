@@ -11,8 +11,8 @@ describe("generateBrowserTools", () => {
 
   it("exposes every tool except the block-list", () => {
     const names = tools.map((t) => t.builtinTool);
-    // 57 TOOL_DEFS minus the three blocked ones.
-    expect(names).toHaveLength(54);
+    // 58 TOOL_DEFS minus the three blocked ones.
+    expect(names).toHaveLength(55);
     for (const b of BLOCKED_TOOLS) expect(names).not.toContain(b);
     expect(new Set(names).size).toBe(names.length);
   });

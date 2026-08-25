@@ -2,6 +2,8 @@ import { PROTOCOL_VERSION, type Exec, type Result, type ErrorBody } from "@atweb
 import type { Step, Json } from "@atwebpilot/shared/types";
 import { runOneStep } from "./rpc-handlers";
 
+const MAX_EXEC_STEP_TIMEOUT_MS = 25_000;
+
 function randomNonce(): string {
   const bytes = new Uint8Array(8);
   crypto.getRandomValues(bytes);
@@ -46,7 +48,12 @@ export async function handleExec(exec: Exec): Promise<Result> {
   }
 
   try {
-    const value = await runOneStep(exec.step as Step, tabId, [], {});
+    const requestedTimeout = exec.step.kind === "js" ? exec.step.timeoutMs : undefined;
+    const timeoutMs = Math.min(requestedTimeout ?? MAX_EXEC_STEP_TIMEOUT_MS, MAX_EXEC_STEP_TIMEOUT_MS);
+    const value = await withTimeout(
+      runOneStep(exec.step as Step, tabId, [], {}),
+      timeoutMs
+    );
     return makeResult(exec.req_id, true, value);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -56,4 +63,23 @@ export async function handleExec(exec: Exec): Promise<Result> {
       false
     ));
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`step timeout after ${timeoutMs}ms`)),
+      timeoutMs
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
 }

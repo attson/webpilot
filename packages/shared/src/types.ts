@@ -65,7 +65,8 @@ export type BuiltinTool =
   | "resize"
   | "drag"
   | "drop"
-  | "findElements";
+  | "findElements"
+  | "inspectElement";
 
 /** BuiltinTool minus tools that can't be replayed offline:
  *  - askUser / screenshot — sidepanel-only

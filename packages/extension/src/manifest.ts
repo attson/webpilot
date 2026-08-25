@@ -16,8 +16,7 @@ export default defineManifest({
   optional_permissions: ["debugger"],
   permissions: ["sidePanel", "storage", "scripting", "activeTab", "tabs", "tabGroups", "webNavigation", "contextMenus", "bookmarks", "history", "downloads"],
   host_permissions: [
-    "http://*/*",
-    "https://*/*",
+    "<all_urls>",
     "ws://127.0.0.1/*",
     "ws://localhost/*"
   ],

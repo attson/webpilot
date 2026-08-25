@@ -37,7 +37,8 @@ const SAFE = new Set([
   "extractPageFields",
   // Plan 32 — read-only observation
   "consoleMessages",
-  "findElements"
+  "findElements",
+  "inspectElement"
 ]);
 
 const CAUTION = new Set([

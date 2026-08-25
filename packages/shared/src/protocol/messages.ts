@@ -3,11 +3,18 @@ import { EnvelopeFields } from "./envelope";
 import { ErrorBodySchema } from "./errors";
 import { ChatSessionEventSchema, ChatSessionStatusSchema } from "./chat-event";
 
-const StepSchema = z.object({
-  kind: z.literal("tool"),
-  tool: z.string(),
-  args: z.unknown()
-});
+export const ProtocolStepSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("tool"),
+    tool: z.string(),
+    args: z.unknown()
+  }),
+  z.object({
+    kind: z.literal("js"),
+    source: z.string(),
+    timeoutMs: z.number().int().positive().optional()
+  })
+]);
 
 // === C → S messages ===
 
@@ -141,7 +148,7 @@ export const ExecSchema = z.object({
   req_id: z.string(),
   session_id: z.string(),
   tab_id: z.string(),
-  step: StepSchema
+  step: ProtocolStepSchema
 });
 
 export const CloseSessionSchema = z.object({
@@ -282,6 +289,7 @@ export type SessionOpened = z.infer<typeof SessionOpenedSchema>;
 export type TabsUpdate = z.infer<typeof TabsUpdateSchema>;
 export type Welcome = z.infer<typeof WelcomeSchema>;
 export type Exec = z.infer<typeof ExecSchema>;
+export type ProtocolStep = z.infer<typeof ProtocolStepSchema>;
 export type Result = z.infer<typeof ResultSchema>;
 export type Progress = z.infer<typeof ProgressSchema>;
 

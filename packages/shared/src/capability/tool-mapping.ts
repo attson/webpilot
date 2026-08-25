@@ -30,6 +30,7 @@ export function capabilityForTool(
     case "searchPageIndex":
     case "readPageBlock":
     case "extractPageFields":
+    case "inspectElement":
       return "read:dom";
     case "extractImages":
       return "read:image";

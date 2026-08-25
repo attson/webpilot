@@ -67,6 +67,27 @@ export const TOOL_DEFS: LlmTool[] = [
     },
   },
   {
+    name: "inspectElement",
+    description:
+      "[FAST·READ·LAYOUT] 读取元素的运行时布局真相：computed style、viewport/document rect、可见性、祖先链与 shadow root 信息。\n" +
+      "调试 display/box-sizing/position/overflow/z-index、弹窗挂载点或父级布局时优先用它，不要为这些只读信息调用 runJS。",
+    input_schema: {
+      type: "object",
+      properties: {
+        selector: { type: "string", description: "CSS selector；与 uid 二选一" },
+        uid: { type: "string", description: "takeSnapshot/findElements 返回的 uid；与 selector 二选一" },
+        ancestorDepth: { type: "integer", default: 5, minimum: 0, maximum: 10 },
+        styleProperties: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: 50,
+          description: "要读取的 CSS 属性；省略时返回常用布局属性"
+        },
+        tabId: TAB_ID_FIELD,
+      },
+    },
+  },
+  {
     name: "extractText",
     description:
       "[FAST·TARGETED] 提取选择器命中元素的文本。single=true 返回字符串，否则返回数组。\n" +
@@ -402,6 +423,7 @@ export const TOOL_DEFS: LlmTool[] = [
       type: "object",
       properties: {
         source: { type: "string", description: "async function body" },
+        timeoutMs: { type: "integer", minimum: 1, maximum: 25000, default: 25000 },
         tabId: TAB_ID_FIELD,
       },
       required: ["source"],

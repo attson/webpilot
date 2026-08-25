@@ -5,11 +5,12 @@ import {
   type Capability
 } from "@atwebpilot/shared/capability";
 import type { BuiltinTool, Json } from "@atwebpilot/shared/types";
-import type { Result } from "@atwebpilot/shared/protocol";
+import type { Exec, Result } from "@atwebpilot/shared/protocol";
+import { highestSeverity, runStaticScan } from "@atwebpilot/shared/static-scan";
 import type { GeneratedTool } from "./tool-gen";
 
 export interface Hub {
-  exec(worker_id: string, params: { session_id: string; tab_id: string; step: { kind: "tool"; tool: string; args: unknown } }): Promise<Result>;
+  exec(worker_id: string, params: { session_id: string; tab_id: string; step: Exec["step"] }): Promise<Result>;
   /** Closes connected workers with the graceful code. Absent in test doubles. */
   shutdown?(): Promise<void>;
   /** Releases the port without the graceful close frame. Absent in test doubles. */
@@ -106,22 +107,30 @@ export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Re
   const session = coordinator.sessions.get(session_id);
   if (!session) throw new Error(`session ${session_id} not found`);
 
-  const { session_id: _omit, ...toolArgs } = args;
+  const { session_id: _omit, ...suppliedToolArgs } = args;
+  const toolArgs: Record<string, unknown> = { ...suppliedToolArgs };
   const tool = gen.builtinTool as BuiltinTool;
 
-  // runJS travels as a `js` step. The MCP server cannot run the static scan
-  // itself, so it declares the call unsafe and lets the extension's scanner
-  // have the final say.
+  // The scanner lives in shared, so MCP can select the same capability tier as
+  // the extension before the step crosses the websocket.
   if (gen.stepKind === "js") {
-    const source = String((toolArgs as Record<string, unknown>).source ?? "");
+    const source = String(toolArgs.source ?? "");
     if (!source) throw new Error("browser_runJS: source required");
-    const v = coordinator.validateCall({ session_id, kind: "runJS", unsafe: true });
+    const unsafe = highestSeverity(runStaticScan(source)) === "dangerous";
+    const v = coordinator.validateCall({ session_id, kind: "runJS", unsafe });
     if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);
     coordinator.recordCall(session_id, v.dangerous);
+    const requestedTimeout = toolArgs.timeoutMs;
     const jsResult = await hub.exec(session.worker_id, {
       session_id,
       tab_id: session.tab_id,
-      step: { kind: "js", source } as unknown as { kind: "tool"; tool: string; args: unknown }
+      step: {
+        kind: "js",
+        source,
+        ...(typeof requestedTimeout === "number" && Number.isInteger(requestedTimeout) && requestedTimeout > 0
+          ? { timeoutMs: requestedTimeout }
+          : {})
+      }
     });
     if (!jsResult.ok) {
       throw new Error(
@@ -131,13 +140,24 @@ export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Re
     return (jsResult.return ?? null) as Json;
   }
 
+  // MCP tools are session-bound, so their schema intentionally omits tabId.
+  // These two tools use tabId as their command argument rather than as a route
+  // override; supply the bound tab explicitly for the background handler.
+  if (gen.builtinTool === "switchToTab" || gen.builtinTool === "closeTab") {
+    const boundTabId = Number.parseInt(session.tab_id, 10);
+    if (!Number.isFinite(boundTabId)) {
+      throw new Error(`InvalidArgs: session tab_id "${session.tab_id}" is not numeric`);
+    }
+    toolArgs.tabId = boundTabId;
+  }
+
   const override = NON_BUILTIN_CAPABILITY[gen.builtinTool];
   if (override) {
     const v = coordinator.validateCall({ session_id, kind: "capability", capability: override });
     if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);
     coordinator.recordCall(session_id, v.dangerous);
   } else {
-    const raw = toolArgs as Record<string, unknown>;
+    const raw = toolArgs;
     const v = coordinator.validateCall({
       session_id,
       kind: "extension_tool",

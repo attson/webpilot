@@ -94,6 +94,38 @@ describe("LoopbackWSHub", () => {
     expect(result.return).toEqual({ clicked: true });
   });
 
+  it("exec() forwards a js step without rewriting it as a tool step", async () => {
+    hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen() });
+    const port = await hub.ready();
+    const ws = await connectWorker(port);
+    let receivedStep: unknown;
+    ws.on("message", (raw) => {
+      const m = JSON.parse(raw.toString());
+      if (m.type === "EXEC") {
+        receivedStep = m.step;
+        ws.send(JSON.stringify({
+          type: "RESULT", nonce: "rn", ts: 2, protocol_version: PROTOCOL_VERSION,
+          req_id: m.req_id, ok: true, return: "Example"
+        }));
+      }
+    });
+    ws.send(JSON.stringify(helloMsg()));
+    await waitForWorker(hub, "w1");
+
+    const result = await hub.exec("w1", {
+      session_id: "s1",
+      tab_id: "42",
+      step: { kind: "js", source: "return document.title", timeoutMs: 5000 }
+    });
+
+    expect(result.return).toBe("Example");
+    expect(receivedStep).toEqual({
+      kind: "js",
+      source: "return document.title",
+      timeoutMs: 5000
+    });
+  });
+
   it("exec() rejects on timeout when no RESULT arrives", async () => {
     hub = new LoopbackWSHub({ port: 0, clock: new DefaultClock(), idGen: new DefaultIdGen(), execTimeoutMs: 80 });
     const port = await hub.ready();

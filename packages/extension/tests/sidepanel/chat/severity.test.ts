@@ -6,6 +6,7 @@ describe("classifyTool", () => {
     expect(classifyTool("snapshotDOM", {})).toBe("safe");
     expect(classifyTool("extractText", { selector: "h1" })).toBe("safe");
     expect(classifyTool("scroll", { to: "bottom" })).toBe("safe");
+    expect(classifyTool("inspectElement", { selector: "#app" })).toBe("safe");
   });
 
   it("click is caution", () => {

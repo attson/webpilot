@@ -16,8 +16,7 @@ describe("manifest", () => {
 
   it("allows policy-gated script injection on HTTP and HTTPS pages", () => {
     const hostPermissions = (manifest as { host_permissions?: string[] }).host_permissions ?? [];
-    expect(hostPermissions).toContain("http://*/*");
-    expect(hostPermissions).toContain("https://*/*");
+    expect(hostPermissions).toContain("<all_urls>");
   });
 
   it("declares native tab-group access for visible AI session ownership", () => {

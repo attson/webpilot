@@ -8,6 +8,7 @@ import { fillByUid } from "./fill-by-uid";
 import { drag } from "./drag";
 import { drop } from "./drop";
 import { findElements } from "./find-elements";
+import { inspectElement } from "./inspect-element";
 import { fillForm } from "./fill-form";
 import { fillInput } from "./fill-input";
 import { focus } from "./focus";
@@ -69,6 +70,7 @@ export const TOOLS: Partial<Record<BuiltinTool, ToolFn>> = {
   drag,
   drop,
   findElements,
+  inspectElement,
   // Page Context Index
   createPageIndex,
   searchPageIndex,
