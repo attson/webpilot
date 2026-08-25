@@ -22,10 +22,21 @@ import {
   type RecorderConfig,
   type RecorderConfigPatch
 } from "@atwebpilot/shared/recorder";
+import type { Json } from "@atwebpilot/shared/types";
 import { cdpRecorderEnabled } from "./cdp-permission";
 import { registerCdpLookup, registerCdpResizer, setDegradedReason } from "./host";
 
 const PROTOCOL = "1.3";
+
+export class CdpEvaluationError extends Error {
+  constructor(
+    readonly code: "cdp_disabled" | "cdp_attach_failed" | "cdp_evaluation_failed",
+    message: string
+  ) {
+    super(message);
+    this.name = "CdpEvaluationError";
+  }
+}
 
 /**
  * Full-fidelity backend. Sees what the MAIN-world patches cannot: response
@@ -282,25 +293,94 @@ export class CdpRecorder implements PageRecorder {
       mobile: false
     });
   }
+
+  async evaluate(source: string, args: Json): Promise<Json> {
+    type EvaluateResponse = {
+      result?: { type?: string; value?: unknown; description?: string };
+      exceptionDetails?: {
+        text?: string;
+        exception?: { description?: string };
+      };
+    };
+    let response: EvaluateResponse;
+    try {
+      response = await this.send<EvaluateResponse>("Runtime.evaluate", {
+        expression: `(async (ctx) => {\n"use strict";\n${source}\n})(${JSON.stringify(args)})`,
+        awaitPromise: true,
+        returnByValue: true
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      throw new CdpEvaluationError("cdp_evaluation_failed", `CDP Runtime.evaluate failed: ${message}`);
+    }
+    if (response.exceptionDetails) {
+      const detail =
+        response.exceptionDetails.exception?.description ??
+        response.exceptionDetails.text ??
+        response.result?.description ??
+        "unknown page exception";
+      throw new CdpEvaluationError("cdp_evaluation_failed", `runJS error: ${detail}`);
+    }
+    if (response.result?.type === "undefined") return null;
+    if (!response.result || !Object.prototype.hasOwnProperty.call(response.result, "value")) {
+      throw new CdpEvaluationError(
+        "cdp_evaluation_failed",
+        "runJS result is not JSON-compatible; return a JSON-compatible value instead of a page object."
+      );
+    }
+    try {
+      const json = JSON.stringify(response.result.value);
+      if (json == null) throw new Error("value cannot be serialized");
+      return JSON.parse(json) as Json;
+    } catch {
+      throw new CdpEvaluationError(
+        "cdp_evaluation_failed",
+        "runJS result is not JSON-compatible; return only null, booleans, finite numbers, strings, arrays, or plain objects."
+      );
+    }
+  }
 }
 
 // ── registry and lifecycle ────────────────────────────────────────────────
 
 const attached = new Map<number, CdpRecorder>();
+const attachFailures = new Map<number, string>();
 
 export function getAttachedCdpRecorder(tabId: number): CdpRecorder | null {
   return attached.get(tabId) ?? null;
+}
+
+export async function evaluateWithCdp(tabId: number, source: string, args: Json): Promise<Json> {
+  if (!(await cdpRecorderEnabled())) {
+    throw new CdpEvaluationError(
+      "cdp_disabled",
+      "页面 CSP 禁止 unsafe-eval。请在 Coordinator 设置中开启 CDP/debugger 后重试；只需读取样式、位置或父链时请改用 inspectElement。"
+    );
+  }
+  const recorder = getAttachedCdpRecorder(tabId) ?? (await attachCdp(tabId));
+  if (!recorder) {
+    const reason = attachFailures.get(tabId) ?? "unknown debugger attach failure";
+    throw new CdpEvaluationError(
+      "cdp_attach_failed",
+      `无法连接 CDP: ${reason}。请关闭该 tab 的 DevTools 或其他 debugger 扩展后重试。`
+    );
+  }
+  return recorder.evaluate(source, args);
 }
 
 /** Returns null rather than throwing — a failed attach must degrade, not fail. */
 export async function attachCdp(tabId: number): Promise<CdpRecorder | null> {
   if (attached.has(tabId)) return attached.get(tabId)!;
   if (!chrome.debugger?.attach) {
-    setDegradedReason(tabId, "chrome.debugger unavailable");
+    const reason = "chrome.debugger unavailable";
+    attachFailures.set(tabId, reason);
+    setDegradedReason(tabId, reason);
     return null;
   }
   if (!(await cdpRecorderEnabled())) {
-    setDegradedReason(tabId, "CDP recorder is off in settings");
+    const reason = "CDP recorder is off in settings";
+    attachFailures.set(tabId, reason);
+    setDegradedReason(tabId, reason);
     return null;
   }
 
@@ -309,11 +389,13 @@ export async function attachCdp(tabId: number): Promise<CdpRecorder | null> {
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     // The usual cause is DevTools or another extension already holding the tab.
+    attachFailures.set(tabId, reason);
     setDegradedReason(tabId, `debugger attach failed: ${reason}`);
     return null;
   }
 
   const rec = new CdpRecorder(tabId);
+  attachFailures.delete(tabId);
   attached.set(tabId, rec);
   for (const domain of ["Runtime.enable", "Log.enable", "Network.enable", "Page.enable"]) {
     try {
@@ -327,6 +409,7 @@ export async function attachCdp(tabId: number): Promise<CdpRecorder | null> {
 
 export async function detachCdp(tabId: number): Promise<void> {
   attached.delete(tabId);
+  attachFailures.delete(tabId);
   try {
     await chrome.debugger?.detach?.({ tabId });
   } catch {
@@ -357,6 +440,7 @@ export function installCdpListeners(): void {
 
   chrome.tabs?.onRemoved?.addListener((tabId) => {
     attached.delete(tabId);
+    attachFailures.delete(tabId);
   });
 }
 

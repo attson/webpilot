@@ -30,6 +30,7 @@ import { readPolicyForTab } from "@/injection-policy";
 import { injectionModeRank } from "@atwebpilot/shared";
 import type { InjectionMode } from "@atwebpilot/shared/types";
 import { DRAIN_SOURCE } from "@/content/recorder/drain";
+import { evaluateWithCdp } from "./recorder/cdp";
 
 // Wired here rather than imported by the host to avoid a circular import.
 registerInjectMain((tabId, source, args) => injectMainWorld(tabId, source, args));
@@ -577,28 +578,33 @@ async function injectMainWorld(tabId: number, source: string, args: Json): Promi
     world: "MAIN",
     args: [source, args],
     func: (src: string, a: unknown) => {
+      let fn: (ctx: unknown) => Promise<unknown>;
       try {
         // eslint-disable-next-line no-new-func
-        const fn = new Function(
+        fn = new Function(
           "ctx",
           `"use strict"; return (async (ctx) => { ${src} })(ctx);`
         ) as (ctx: unknown) => Promise<unknown>;
-        return Promise.resolve(fn(a)).then(
-          (v) => ({ __ok: true as const, value: v }),
-          (e: unknown) => ({
-            __ok: false as const,
-            error:
-              e instanceof Error
-                ? `${e.name}: ${e.message}\n${e.stack ?? ""}`.trim()
-                : String(e)
-          })
-        );
       } catch (e) {
         return {
           __ok: false as const,
+          phase: "compile" as const,
+          errorName: e instanceof Error ? e.name : undefined,
           error: e instanceof Error ? `${e.name}: ${e.message}` : String(e)
         };
       }
+      return Promise.resolve(fn(a)).then(
+        (v) => ({ __ok: true as const, value: v }),
+        (e: unknown) => ({
+          __ok: false as const,
+          phase: "runtime" as const,
+          errorName: e instanceof Error ? e.name : undefined,
+          error:
+            e instanceof Error
+              ? `${e.name}: ${e.message}\n${e.stack ?? ""}`.trim()
+              : String(e)
+        })
+      );
     }
   });
   const result = res?.result;
@@ -607,11 +613,30 @@ async function injectMainWorld(tabId: number, source: string, args: Json): Promi
     typeof result === "object" &&
     "__ok" in (result as Record<string, unknown>)
   ) {
-    const wrapped = result as { __ok: boolean; value?: unknown; error?: string };
+    const wrapped = result as {
+      __ok: boolean;
+      value?: unknown;
+      phase?: "compile" | "runtime";
+      errorName?: string;
+      error?: string;
+    };
     if (wrapped.__ok) return ((wrapped.value ?? null) as Json);
+    if (isCspCompileFailure(wrapped)) return evaluateWithCdp(tabId, source, args);
     throw new Error(`runJS error: ${wrapped.error ?? "(unknown)"}`);
   }
   return (result ?? null) as Json;
+}
+
+function isCspCompileFailure(result: {
+  phase?: "compile" | "runtime";
+  errorName?: string;
+  error?: string;
+}): boolean {
+  return result.phase === "compile" &&
+    result.errorName === "EvalError" &&
+    /unsafe-eval|content security policy|refused to evaluate a string|evaluating a string as javascript/i.test(
+      result.error ?? ""
+    );
 }
 
 async function listTabsRpc(windowId?: number): Promise<{

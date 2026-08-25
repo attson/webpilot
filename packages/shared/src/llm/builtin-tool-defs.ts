@@ -418,7 +418,7 @@ export const TOOL_DEFS: LlmTool[] = [
     name: "runJS",
     description:
       "[LAST RESORT·DANGER] 在 MAIN world 注入并执行 async 函数体（receives `ctx` = bindings）。必须 return 值。\n" +
-      "**仅在结构化工具不够用时使用**——会经过静态扫描与人工审阅。",
+      "**仅在结构化工具不够用时使用**——会经过静态扫描与人工审阅。严格 CSP 页面需要用户预先在扩展设置中开启 CDP/debugger；读取样式、位置或祖先链请优先使用 inspectElement。",
     input_schema: {
       type: "object",
       properties: {

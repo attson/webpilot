@@ -281,9 +281,10 @@ export function CoordinatorSettingsPage() {
           <br />
           <span className="text-xs text-gray-500">
             开启后 console / network / 弹窗的记录更完整：能拿到响应 body、脚本注入之前的日志、CORS 与
-            CSP 报错，弹窗也能真正挂起等待应答。代价：浏览器顶部会常驻「AtWebPilot 正在调试此浏览器」
-            提示条，且与 DevTools、其它调试类扩展互斥——被抢占时会自动退回默认录制并在结果里标出
-            degradedReason。需要单独授予 debugger 权限。
+            CSP 报错，弹窗也能真正挂起等待应答；严格 CSP 页面阻止 unsafe-eval 时，runJS 也会按需通过
+            CDP 执行。代价：浏览器顶部会常驻「AtWebPilot 正在调试此浏览器」提示条，且与 DevTools、
+            其它调试类扩展互斥——被抢占时会自动退回默认录制并在结果里标出 degradedReason。需要单独
+            授予 debugger 权限。
           </span>
         </span>
       </label>

@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleRpc, setRecorderPolicy } from "@/background/rpc-handlers";
+import { detachCdp } from "@/background/recorder/cdp";
 import { _resetDBForTests } from "@/background/storage/db";
 import { saveDraft } from "@/background/storage/tools";
 
@@ -91,6 +92,137 @@ describe("recorder policy", () => {
     await setRecorderPolicy(8, false);
 
     expect(executeScript).toHaveBeenCalledOnce();
+  });
+});
+
+describe("scripting.injectMain CSP fallback", () => {
+  const tabId = 91;
+
+  function runJsChrome(mainResult: unknown, options: { executeInjected?: boolean; cdpEnabled?: boolean } = {}) {
+    const sendCommand = vi.fn(async (_target: chrome.debugger.Debuggee, method: string, _params?: object) =>
+      method === "Runtime.evaluate" ? { result: { type: "number", value: 2 } } : {}
+    );
+    const chromeStub = {
+      storage: {
+        local: {
+          get: vi.fn(async () => ({
+            "atwebpilot.llm": {
+              defaultInjectionMode: "operate",
+              defaultAssistantEnabled: false,
+              siteInjectionRules: []
+            },
+            "atwebpilot.recorder.cdpEnabled": options.cdpEnabled !== false
+          }))
+        }
+      },
+      permissions: { contains: vi.fn(async () => options.cdpEnabled !== false) },
+      tabs: { get: vi.fn(async () => ({ id: tabId, url: "https://github.com/" })) },
+      scripting: {
+        executeScript: vi.fn(async (details: {
+          func?: (source: string, args: unknown) => unknown;
+          args?: [string, unknown];
+        }) => [{
+          result: options.executeInjected
+            ? await details.func!(...details.args!)
+            : mainResult
+        }])
+      },
+      debugger: {
+        attach: vi.fn(async () => undefined),
+        detach: vi.fn(async () => undefined),
+        sendCommand
+      }
+    };
+    vi.stubGlobal("chrome", chromeStub);
+    return chromeStub;
+  }
+
+  afterEach(async () => {
+    await detachCdp(tabId);
+  });
+
+  it("uses CDP after a compile-stage CSP EvalError", async () => {
+    const chromeStub = runJsChrome({
+      __ok: false,
+      phase: "compile",
+      errorName: "EvalError",
+      error: "EvalError: Refused to evaluate a string because 'unsafe-eval' is not an allowed source"
+    });
+
+    const result = await handleRpc({
+      type: "scripting.injectMain",
+      tabId,
+      source: "return 1 + 1",
+      args: {}
+    });
+
+    expect(result).toEqual({ ok: true, data: 2 });
+    expect(chromeStub.debugger.attach).toHaveBeenCalledOnce();
+    expect(chromeStub.scripting.executeScript).toHaveBeenCalledOnce();
+  });
+
+  it("does not retry a runtime error even when its message mentions unsafe-eval", async () => {
+    const chromeStub = runJsChrome(null, { executeInjected: true });
+
+    const result = await handleRpc({
+      type: "scripting.injectMain",
+      tabId,
+      source: "throw new EvalError('user code reports unsafe-eval')",
+      args: {}
+    });
+
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining("user code") });
+    expect(chromeStub.debugger.attach).not.toHaveBeenCalled();
+  });
+
+  it("keeps successful scripts on the MAIN-world path", async () => {
+    const chromeStub = runJsChrome(null, { executeInjected: true });
+
+    const result = await handleRpc({
+      type: "scripting.injectMain",
+      tabId,
+      source: "return 1 + 1",
+      args: {}
+    });
+
+    expect(result).toEqual({ ok: true, data: 2 });
+    expect(chromeStub.debugger.attach).not.toHaveBeenCalled();
+  });
+
+  it("does not retry ordinary syntax errors", async () => {
+    const chromeStub = runJsChrome(null, { executeInjected: true });
+
+    const result = await handleRpc({
+      type: "scripting.injectMain",
+      tabId,
+      source: "return (",
+      args: {}
+    });
+
+    expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/SyntaxError/i) });
+    expect(chromeStub.debugger.attach).not.toHaveBeenCalled();
+  });
+
+  it("returns setup guidance when CSP blocks MAIN world and CDP is off", async () => {
+    const chromeStub = runJsChrome({
+      __ok: false,
+      phase: "compile",
+      errorName: "EvalError",
+      error: "EvalError: 'unsafe-eval' is not an allowed source"
+    }, { cdpEnabled: false });
+
+    const result = await handleRpc({
+      type: "scripting.injectMain",
+      tabId,
+      source: "return 1 + 1",
+      args: {}
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/Coordinator.*CDP.*debugger.*inspectElement/i)
+    });
+    expect(chromeStub.debugger.attach).not.toHaveBeenCalled();
   });
 });
 

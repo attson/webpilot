@@ -3,6 +3,7 @@ import {
   CdpRecorder,
   attachCdp,
   detachCdp,
+  evaluateWithCdp,
   getAttachedCdpRecorder,
   installCdpListeners
 } from "@/background/recorder/cdp";
@@ -14,7 +15,11 @@ type Listener = (...a: unknown[]) => void;
 
 function fakeChrome(opts: { attachFails?: string; enabled?: boolean } = {}) {
   const listeners: Record<string, Listener[]> = { onEvent: [], onDetach: [], onRemoved: [] };
-  const sendCommand = vi.fn(async () => ({}) as unknown);
+  const sendCommand = vi.fn(async (
+    _target: chrome.debugger.Debuggee,
+    _method: string,
+    _params?: object
+  ): Promise<unknown> => ({}));
   const chromeStub = {
     debugger: {
       attach: vi.fn(async () => {
@@ -77,6 +82,112 @@ describe("attachCdp", () => {
     expect(enabled).toEqual(
       expect.arrayContaining(["Runtime.enable", "Log.enable", "Network.enable", "Page.enable"])
     );
+  });
+});
+
+describe("evaluateWithCdp", () => {
+  it("explains how to enable CDP without requesting permission when it is off", async () => {
+    const { chromeStub } = fakeChrome({ enabled: false });
+
+    await expect(evaluateWithCdp(1, "return 2", {})).rejects.toMatchObject({
+      code: "cdp_disabled"
+    });
+    await expect(evaluateWithCdp(1, "return 2", {})).rejects.toThrow(
+      /Coordinator.*CDP.*inspectElement/i
+    );
+    expect(chromeStub.debugger.attach).not.toHaveBeenCalled();
+    expect(chromeStub.permissions).not.toHaveProperty("request");
+  });
+
+  it("lazily attaches and evaluates the async function body by value", async () => {
+    const { sendCommand, chromeStub } = fakeChrome();
+    sendCommand.mockImplementation(async (_target, method) => {
+      if (method === "Runtime.evaluate") return { result: { type: "number", value: 2 } };
+      return {};
+    });
+
+    await expect(evaluateWithCdp(1, "return ctx.left + 1", { left: 1 })).resolves.toBe(2);
+    await expect(evaluateWithCdp(1, "return ctx.left + 1", { left: 1 })).resolves.toBe(2);
+
+    expect(chromeStub.debugger.attach).toHaveBeenCalledWith({ tabId: 1 }, "1.3");
+    expect(chromeStub.debugger.attach).toHaveBeenCalledOnce();
+    expect(sendCommand).toHaveBeenCalledWith(
+      { tabId: 1 },
+      "Runtime.evaluate",
+      expect.objectContaining({
+        expression: expect.stringContaining("return ctx.left + 1"),
+        awaitPromise: true,
+        returnByValue: true
+      })
+    );
+    const evaluateCall = sendCommand.mock.calls.find((call) => call[1] === "Runtime.evaluate");
+    expect(evaluateCall?.[2]).toMatchObject({ expression: expect.stringContaining('{"left":1}') });
+  });
+
+  it("surfaces page exceptions returned by Runtime.evaluate", async () => {
+    const { sendCommand } = fakeChrome();
+    sendCommand.mockImplementation(async (_target, method) => {
+      if (method === "Runtime.evaluate") {
+        return {
+          result: { type: "object", subtype: "error", description: "Error: boom\n    at test.js:1:1" },
+          exceptionDetails: {
+            text: "Uncaught (in promise) Error: boom",
+            exception: { description: "Error: boom\n    at test.js:1:1" }
+          }
+        };
+      }
+      return {};
+    });
+
+    await expect(evaluateWithCdp(1, "throw new Error('boom')", {})).rejects.toMatchObject({
+      code: "cdp_evaluation_failed",
+      message: expect.stringContaining("Error: boom")
+    });
+  });
+
+  it("maps undefined to null", async () => {
+    const { sendCommand } = fakeChrome();
+    sendCommand.mockImplementation(async (_target, method) =>
+      method === "Runtime.evaluate" ? { result: { type: "undefined" } } : {}
+    );
+
+    await expect(evaluateWithCdp(1, "return undefined", {})).resolves.toBeNull();
+  });
+
+  it("rejects results that CDP cannot return by value", async () => {
+    const { sendCommand } = fakeChrome();
+    sendCommand.mockImplementation(async (_target, method) =>
+      method === "Runtime.evaluate"
+        ? { result: { type: "object", objectId: "remote-object-1" } }
+        : {}
+    );
+
+    await expect(evaluateWithCdp(1, "return window", {})).rejects.toMatchObject({
+      code: "cdp_evaluation_failed",
+      message: expect.stringMatching(/JSON-compatible/i)
+    });
+  });
+
+  it("preserves the Chrome attach failure reason", async () => {
+    fakeChrome({ attachFails: "Another debugger is already attached to the tab with id: 1" });
+
+    await expect(evaluateWithCdp(1, "return 2", {})).rejects.toMatchObject({
+      code: "cdp_attach_failed",
+      message: expect.stringMatching(/Another debugger.*DevTools/i)
+    });
+  });
+
+  it("classifies Runtime.evaluate transport failures", async () => {
+    const { sendCommand } = fakeChrome();
+    sendCommand.mockImplementation(async (_target, method) => {
+      if (method === "Runtime.evaluate") throw new Error("Cannot access a chrome:// URL");
+      return {};
+    });
+
+    await expect(evaluateWithCdp(1, "return 2", {})).rejects.toMatchObject({
+      code: "cdp_evaluation_failed",
+      message: expect.stringContaining("Cannot access a chrome:// URL")
+    });
   });
 });
 

@@ -44,6 +44,10 @@ describe("Plan 32 parity tool defs", () => {
     expect(byName.get("handleDialog")!.description).toContain("main-world");
   });
 
+  it("documents the strict-CSP requirement for runJS", () => {
+    expect(byName.get("runJS")!.description).toMatch(/严格 CSP.*CDP/);
+  });
+
   it("extends click, fillInput, screenshot and waitFor", () => {
     expect(Object.keys(props("click"))).toEqual(
       expect.arrayContaining(["doubleClick", "button", "modifiers"])
