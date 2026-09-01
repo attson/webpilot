@@ -4,7 +4,8 @@ import type { JsonSchema } from "@atwebpilot/shared/types";
 import { CONTROL_TOOLS } from "./control-tools";
 import { generateBrowserTools, readToolMode, type GeneratedTool } from "./tool-gen";
 import {
-  handleListTabs, handleOpenSession, handleCloseSession, handleGetQuota, handleBrowserTool, type Deps
+  handleListTabs, handleOpenSession, handleCloseSession, handleGetQuota, handleBrowserTool,
+  type Deps, type PairingRequiredHandler
 } from "./handlers";
 import { readSkillBundle, SKILL_TOOL } from "./skill-bundle";
 
@@ -77,14 +78,19 @@ function toolResult(gen: GeneratedTool, data: unknown): CallResult {
 }
 const fail = (message: string): CallResult => ({ content: [{ type: "text", text: message }], isError: true });
 
-export async function dispatchCall(deps: Deps, name: string, args: Record<string, unknown>): Promise<CallResult> {
+export async function dispatchCall(
+  deps: Deps,
+  name: string,
+  args: Record<string, unknown>,
+  onPairingRequired?: PairingRequiredHandler
+): Promise<CallResult> {
   try {
     if (name === SKILL_TOOL.name) {
       const bundle = readSkillBundle();
       return { content: [{ type: "text", text: bundle.content }] };
     }
-    if (name === "list_tabs") return ok(await handleListTabs(deps));
-    if (name === "open_session") return ok(await handleOpenSession(deps, args));
+    if (name === "list_tabs") return ok(await handleListTabs(deps, onPairingRequired));
+    if (name === "open_session") return ok(await handleOpenSession(deps, args, onPairingRequired));
     if (name === "close_session") return ok(await handleCloseSession(deps, args));
     if (name === "get_quota") return ok(await handleGetQuota(deps, args));
     const gen = BROWSER_BY_NAME.get(name);
@@ -96,11 +102,33 @@ export async function dispatchCall(deps: Deps, name: string, args: Record<string
 }
 
 export function createMcpServer(deps: Deps): Server {
-  const server = new Server({ name: "atwebpilot-mcp", version: "0.1.0" }, { capabilities: { tools: {} } });
+  const server = new Server(
+    { name: "atwebpilot-mcp", version: "0.1.0" },
+    { capabilities: { tools: {}, logging: {} } }
+  );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: buildToolList(deps) }));
-  server.setRequestHandler(CallToolRequestSchema, async (req) => {
+  server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
     const args = (req.params.arguments ?? {}) as Record<string, unknown>;
-    return dispatchCall(deps, req.params.name, args);
+    const onPairingRequired: PairingRequiredHandler = async (url) => {
+      const message = `等待浏览器授权（最多 90 秒）。配对页：${url}。已尝试自动打开；若未弹出，请手动打开。`;
+      try {
+        const progressToken = extra._meta?.progressToken;
+        if (progressToken != null) {
+          await extra.sendNotification({
+            method: "notifications/progress",
+            params: { progressToken, progress: 0, total: 1, message }
+          });
+        } else {
+          await server.sendLoggingMessage({ level: "info", logger: "atwebpilot", data: message });
+        }
+      } catch (error) {
+        console.error(
+          "[atwebpilot-mcp] failed to report pairing URL:",
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+    };
+    return dispatchCall(deps, req.params.name, args, onPairingRequired);
   });
   return server;
 }

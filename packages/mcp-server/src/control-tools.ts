@@ -5,7 +5,7 @@ export type ControlTool = { name: string; description: string; inputSchema: Json
 export const CONTROL_TOOLS: ControlTool[] = [
   {
     name: "list_tabs",
-    description: "列出当前连入的浏览器（worker）可用的标签页：[{tab_id,url,title}]。先调它拿 tab_id。",
+    description: "列出浏览器可用标签页：[{tab_id,url,title}]。若扩展尚未连接，首次调用会尝试自动打开配对页并等待授权（最多 90 秒），等待期间会通知实际配对 URL。先调它拿 tab_id。",
     inputSchema: { type: "object", properties: {}, additionalProperties: false } as JsonSchema
   },
   {

@@ -19,7 +19,7 @@ export type EnsureDeps = {
   token?: string;
   identityDir?: string;
   /** Injected so tests can assert the page opens without spawning a browser. */
-  openUrl?: (url: string) => void;
+  openUrl?: (url: string) => void | Promise<void>;
   processInfo?: ProcessInfo;
 };
 
@@ -37,6 +37,7 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
   let inflight: Promise<HubBundle> | null = null;
   let pairUrlValue: string | null = null;
   let opened = false;
+  let opening: Promise<void> | null = null;
   let hubIsClosed = false;
   let pendingDenial = false;
   let workerWait: {
@@ -136,24 +137,39 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
     }
   }
 
-  async function ensure(): Promise<HubBundle> {
-    if (bundle) return bundle;
-    // Concurrent first calls must share one bind, not race two servers.
-    inflight ??= bind().then((b) => {
-      bundle = b;
-      return b;
-    });
-    const b = await inflight;
-    if (!opened) {
-      opened = true;
-      // At most once per process: a session that keeps failing should not keep
-      // spawning tabs.
-      if (pairUrlValue) d.openUrl?.(pairUrlValue);
-    }
-    return b;
+  async function openPairPage(): Promise<void> {
+    if (opened || !pairUrlValue || !d.openUrl) return;
+    const url = pairUrlValue;
+    opening ??= Promise.resolve()
+      .then(() => d.openUrl!(url))
+      .then(() => { opened = true; })
+      .catch((error) => {
+        console.error(
+          `[atwebpilot-mcp] failed to open pairing page ${url}:`,
+          error instanceof Error ? error.message : String(error)
+        );
+      })
+      .finally(() => { opening = null; });
+    await opening;
   }
 
-  async function waitForWorker(timeoutMs = DEFAULT_WORKER_WAIT_TIMEOUT_MS): Promise<string> {
+  async function ensure(): Promise<HubBundle> {
+    if (!bundle) {
+      // Concurrent first calls must share one bind, not race two servers.
+      inflight ??= bind().then((b) => {
+        bundle = b;
+        return b;
+      });
+      await inflight;
+    }
+    await openPairPage();
+    return bundle!;
+  }
+
+  async function waitForWorker(
+    timeoutMs = DEFAULT_WORKER_WAIT_TIMEOUT_MS,
+    onWaiting?: (pairUrl: string) => void | Promise<void>
+  ): Promise<string> {
     const { coordinator } = await ensure();
     if (hubIsClosed) throw new Error("浏览器配对服务已关闭。");
     const connected = connectedWorkerId(coordinator);
@@ -165,6 +181,7 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
           (pairUrlValue ? `配对页：${pairUrlValue}` : "")
       );
     }
+    if (pairUrlValue) await onWaiting?.(pairUrlValue);
     if (workerWait) return workerWait.promise;
 
     let resolve!: (workerId: string) => void;
@@ -177,7 +194,7 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
       finishWorkerWait({
         error: new Error(
           `等待浏览器授权超时（${Math.ceil(timeoutMs / 1000)} 秒）。` +
-            (pairUrlValue ? `请在已打开的配对页 ${pairUrlValue} 完成授权后重试。` : "")
+            (pairUrlValue ? `请打开配对页 ${pairUrlValue} 完成授权后重试。` : "")
         )
       });
     }, timeoutMs);
@@ -195,17 +212,57 @@ export function createHubEnsurer(d: EnsureDeps): Deps & { bound(): boolean } {
   };
 }
 
-/** Opens a URL in the user's default browser, best-effort. */
-export function defaultOpenUrl(url: string): void {
-  void import("node:child_process").then(({ spawn }) => {
-    const cmd =
-      process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-    try {
-      spawn(cmd, [url], { stdio: "ignore", detached: true, shell: process.platform === "win32" })
-        .unref();
-    } catch {
-      // The URL is also in the error text the agent received, so a failure to
-      // spawn is not fatal.
-    }
+type OpenCommand = { command: string; args: string[] };
+
+function openCommands(url: string): OpenCommand[] {
+  if (process.platform === "darwin") return [{ command: "open", args: [url] }];
+  if (process.platform === "win32") {
+    return [{ command: "cmd.exe", args: ["/d", "/s", "/c", "start", "", url] }];
+  }
+  if (process.env.WSL_DISTRO_NAME) {
+    return [{ command: "cmd.exe", args: ["/c", "start", "", url] }];
+  }
+  return [
+    { command: "xdg-open", args: [url] },
+    { command: "gio", args: ["open", url] }
+  ];
+}
+
+async function runOpenCommand({ command, args }: OpenCommand): Promise<void> {
+  const { spawn } = await import("node:child_process");
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, { stdio: "ignore", detached: true });
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error);
+      else resolve();
+    };
+    const timer = setTimeout(() => {
+      child.unref();
+      finish();
+    }, 3_000);
+    timer.unref?.();
+    child.once("error", (error) => finish(error));
+    child.once("exit", (code, signal) => {
+      if (code === 0) finish();
+      else finish(new Error(`${command} exited with ${code ?? signal ?? "unknown status"}`));
+    });
   });
+}
+
+/** Opens a URL in the user's default browser and reports launch failures. */
+export async function defaultOpenUrl(url: string): Promise<void> {
+  const errors: string[] = [];
+  for (const candidate of openCommands(url)) {
+    try {
+      await runOpenCommand(candidate);
+      return;
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+  throw new Error(errors.join("; ") || "no browser opener available");
 }

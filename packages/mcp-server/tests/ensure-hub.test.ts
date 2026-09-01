@@ -33,7 +33,11 @@ function helloMsg(): Hello {
   };
 }
 
-function makeEnsurer(opts: { openUrl?: (u: string) => void; dir?: string; explicitPort?: number }) {
+function makeEnsurer(opts: {
+  openUrl?: (u: string) => void | Promise<void>;
+  dir?: string;
+  explicitPort?: number;
+}) {
   const e = createHubEnsurer({
     clock: new FakeClock(0),
     idGen: new FakeIdGen(),
@@ -79,11 +83,39 @@ describe("createHubEnsurer", () => {
 
   it("opens the pairing page at most once", async () => {
     const opened: string[] = [];
-    const e = makeEnsurer({ openUrl: (u) => opened.push(u) });
+    const e = makeEnsurer({ openUrl: (u) => { opened.push(u); } });
     await e.ensure();
     await e.ensure();
     expect(opened).toHaveLength(1);
     expect(opened[0]).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/pair$/);
+  });
+
+  it("retries opening the pairing page after a launch failure", async () => {
+    let attempts = 0;
+    const e = makeEnsurer({
+      openUrl: async () => {
+        attempts += 1;
+        if (attempts === 1) throw new Error("no browser opener");
+      }
+    });
+
+    await e.ensure();
+    await e.ensure();
+
+    expect(attempts).toBe(2);
+  });
+
+  it("announces the pairing URL before waiting for HELLO", async () => {
+    const e = makeEnsurer({});
+    const announced: string[] = [];
+    const waiting = e.waitForWorker(1_000, (url) => {
+      announced.push(url);
+      throw new Error("stop after announcement");
+    });
+
+    await expect(waiting).rejects.toThrow("stop after announcement");
+    expect(announced).toHaveLength(1);
+    expect(announced[0]).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/pair$/);
   });
 
   it("keeps the first browser call pending until HELLO registers a worker", async () => {

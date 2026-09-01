@@ -31,8 +31,13 @@ export interface Deps {
   /** URL of the pairing page, once a hub exists. */
   pairUrl(): string | null;
   /** Waits for the extension's HELLO when the browser is not connected yet. */
-  waitForWorker(timeoutMs?: number): Promise<string>;
+  waitForWorker(
+    timeoutMs?: number,
+    onWaiting?: (pairUrl: string) => void | Promise<void>
+  ): Promise<string>;
 }
+
+export type PairingRequiredHandler = (pairUrl: string) => void | Promise<void>;
 
 /** Test helper: a Deps whose hub already exists. */
 export function staticDeps(coordinator: Coordinator, hub: Hub, port = 0): Deps {
@@ -58,9 +63,12 @@ function singleWorkerId(c: Coordinator, pairUrl: string | null): string {
   return workers[0].id;
 }
 
-export async function handleListTabs(deps: Deps): Promise<{ tabs: unknown[] }> {
+export async function handleListTabs(
+  deps: Deps,
+  onPairingRequired?: PairingRequiredHandler
+): Promise<{ tabs: unknown[] }> {
   const { coordinator } = await deps.ensure();
-  const workerId = await deps.waitForWorker();
+  const workerId = await deps.waitForWorker(undefined, onPairingRequired);
   const w = coordinator.workers.get(workerId);
   if (!w) throw new Error(`worker ${workerId} disconnected while opening browser context`);
   return { tabs: w.available_tabs };
@@ -68,10 +76,11 @@ export async function handleListTabs(deps: Deps): Promise<{ tabs: unknown[] }> {
 
 export async function handleOpenSession(
   deps: Deps,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  onPairingRequired?: PairingRequiredHandler
 ): Promise<{ session_id: string }> {
   const { coordinator } = await deps.ensure();
-  const worker_id = await deps.waitForWorker();
+  const worker_id = await deps.waitForWorker(undefined, onPairingRequired);
   const tab_id = String(args.tab_id);
   const requested = Array.isArray(args.capabilities) ? (args.capabilities as unknown[]).map(String).filter(isCapability) : [];
   const scope = new Set<Capability>(requested.length ? requested : (CAPABILITIES as readonly Capability[]));

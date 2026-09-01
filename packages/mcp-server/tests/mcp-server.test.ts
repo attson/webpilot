@@ -1,8 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Coordinator, FakeClock, FakeIdGen, type Worker } from "@atwebpilot/coordinator";
 import type { Result } from "@atwebpilot/shared/protocol";
-import { buildToolList, dispatchCall } from "../src/mcp-server";
-import { staticDeps } from "../src/handlers";
+import { buildToolList, createMcpServer, dispatchCall } from "../src/mcp-server";
+import { staticDeps, type Deps } from "../src/handlers";
 
 function fakeWorker(): Worker {
   return {
@@ -29,6 +31,54 @@ describe("buildToolList", () => {
     expect(names).toContain("open_session");
     expect(names).toContain("browser_click");
     for (const t of tools) expect(t.inputSchema).toBeTruthy();
+  });
+
+  it("describes the first-use pairing behavior", () => {
+    const listTabs = buildToolList().find((tool) => tool.name === "list_tabs");
+    expect(listTabs?.description).toContain("配对页");
+    expect(listTabs?.description).toContain("90 秒");
+  });
+});
+
+describe("pairing progress", () => {
+  it("reports the pairing URL while list_tabs is still waiting", async () => {
+    let release!: () => void;
+    const workerReady = new Promise<void>((resolve) => { release = resolve; });
+    const d: Deps = {
+      ensure: async () => ({
+        coordinator: {
+          workers: {
+            get: () => ({ available_tabs: [] })
+          }
+        } as any,
+        hub: {} as any,
+        port: 43443
+      }),
+      peek: () => null,
+      pairUrl: () => "http://127.0.0.1:43443/pair",
+      waitForWorker: async (_timeoutMs, onWaiting) => {
+        await onWaiting?.("http://127.0.0.1:43443/pair");
+        await workerReady;
+        return "w1";
+      }
+    };
+    const server = createMcpServer(d);
+    const client = new Client({ name: "test-client", version: "1" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    const messages: string[] = [];
+
+    const call = client.callTool(
+      { name: "list_tabs", arguments: {} },
+      undefined,
+      { onprogress: (progress) => messages.push(progress.message ?? "") }
+    );
+    await vi.waitFor(() => expect(messages).toHaveLength(1));
+
+    expect(messages[0]).toContain("http://127.0.0.1:43443/pair");
+    release();
+    await call;
+    await Promise.all([client.close(), server.close()]);
   });
 });
 
