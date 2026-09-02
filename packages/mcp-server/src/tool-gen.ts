@@ -210,3 +210,35 @@ export function readToolMode(env: Record<string, string | undefined>): ToolMode 
   );
   return "core";
 }
+
+export type DiscoverGroup = "export" | "network" | "storage" | "browser-data" | "inspect" | "legacy-dom" | "form";
+
+/** Keyed by MCP name. Everything outside CORE_TOOLS must appear exactly once. */
+export const DISCOVERABLE_GROUPS: Record<DiscoverGroup, readonly string[]> = {
+  export: ["browser_downloadImage", "browser_downloadSpreadsheet"],
+  network: ["browser_httpRequest", "browser_networkRequestDetail", "browser_recorderConfig", "browser_handleDialog"],
+  storage: ["browser_storage"],
+  "browser-data": ["browser_searchBookmarks", "browser_searchHistory"],
+  inspect: ["browser_inspectElement", "browser_highlight", "browser_getValue", "browser_extractFormState"],
+  "legacy-dom": ["browser_snapshotDOM", "browser_querySelector", "browser_querySelectorAll", "browser_extractImages", "browser_focus"],
+  form: ["browser_submitForm"]
+};
+
+const GROUP_BY_NAME = new Map<string, DiscoverGroup>(
+  (Object.entries(DISCOVERABLE_GROUPS) as Array<[DiscoverGroup, readonly string[]]>)
+    .flatMap(([g, names]) => names.map((n) => [n, g] as const))
+);
+
+export function groupOf(mcpName: string): DiscoverGroup | undefined {
+  return GROUP_BY_NAME.get(mcpName);
+}
+
+export type CatalogEntry = { name: string; group: DiscoverGroup; description: string };
+
+/** Tools in `all` that `advertised` does not yet contain, grouped for the agent. */
+export function discoveryCatalog(all: GeneratedTool[], advertised: ReadonlySet<string>): CatalogEntry[] {
+  return all
+    .filter((t) => !advertised.has(t.name))
+    .map((t) => ({ name: t.name, group: groupOf(t.name) ?? ("legacy-dom" as DiscoverGroup), description: t.description }))
+    .sort((a, b) => (a.group < b.group ? -1 : a.group > b.group ? 1 : a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}

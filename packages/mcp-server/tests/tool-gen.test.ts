@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   BLOCKED_TOOLS,
   CORE_TOOLS,
+  DISCOVERABLE_GROUPS,
+  discoveryCatalog,
   generateBrowserTools,
+  groupOf,
   readToolMode
 } from "../src/tool-gen";
 
@@ -184,5 +187,35 @@ describe("readToolMode", () => {
   it("falls back to core on an unrecognised value (including the removed parity)", () => {
     expect(readToolMode({ ATWEBPILOT_MCP_TOOLS: "parity" })).toBe("core");
     expect(readToolMode({ ATWEBPILOT_MCP_TOOLS: "nonsense" })).toBe("core");
+  });
+});
+
+describe("discovery catalog", () => {
+  const full = generateBrowserTools("full");
+  const core = new Set(generateBrowserTools("core").map((t) => t.name));
+
+  it("assigns every non-core tool to exactly one group and no core tool to any", () => {
+    const grouped = Object.values(DISCOVERABLE_GROUPS).flat();
+    expect(new Set(grouped).size).toBe(grouped.length);
+    for (const t of full) {
+      if (core.has(t.name)) expect(groupOf(t.name), t.name).toBeUndefined();
+      else expect(groupOf(t.name), t.name).toBeTruthy();
+    }
+    for (const n of grouped) expect(full.some((t) => t.name === n), n).toBe(true);
+  });
+
+  it("lists what is not advertised, sorted by group then name", () => {
+    const cat = discoveryCatalog(full, core);
+    expect(cat.length).toBe(full.length - core.size);
+    expect(cat.map((c) => c.name)).toContain("browser_downloadSpreadsheet");
+    expect(cat.map((c) => c.name)).not.toContain("browser_click");
+    const keys = cat.map((c) => `${c.group} ${c.name}`);
+    expect(keys).toEqual([...keys].sort());
+    for (const c of cat) expect(c.description).not.toMatch(/[一-鿿]/);
+  });
+
+  it("shrinks as tools get advertised", () => {
+    const adv = new Set([...core, "browser_downloadSpreadsheet"]);
+    expect(discoveryCatalog(full, adv).map((c) => c.name)).not.toContain("browser_downloadSpreadsheet");
   });
 });

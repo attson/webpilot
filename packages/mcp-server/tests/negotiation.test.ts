@@ -31,8 +31,11 @@ function depsWith(w?: Worker) {
   return staticDeps(coordinator, { exec: async () => ({}) } as never);
 }
 
+// browser_discoverTools is unconditional (not filtered by worker support or
+// advertised state), so it is excluded here to keep these assertions focused
+// on the worker-support-negotiated browser surface.
 const browserNames = (list: Array<{ name: string }>) =>
-  list.map((t) => t.name).filter((n) => n.startsWith("browser_"));
+  list.map((t) => t.name).filter((n) => n.startsWith("browser_") && n !== "browser_discoverTools");
 
 describe("supported_tools negotiation", () => {
   it("advertises the default (core) surface when no worker has connected yet", () => {
