@@ -109,13 +109,15 @@ extractText({ selector: "main, article, .content" })
 
 ### 填表 + 提交
 
+`submitForm` 属于 form 组，先 `browser_discoverTools({ enable: ["browser_submitForm"] })` 启用。
+
 ```
 takeSnapshot()  // 找输入框
 fillInput({ selector: "#name", value: "张三" })
 setCheckbox({ selector: "#agree", checked: true })
 selectOption({ selector: "#city", value: "北京" })
-→ askUser({ kind: "confirm", prompt: "确认提交吗？" })
-→ submitForm()  // dangerous，审批通过后执行
+→ 在回复中向用户确认「确认提交吗？」
+→ submitForm()  // dangerous，用户确认后执行
 ```
 
 ### 翻页采集
@@ -137,7 +139,6 @@ waitFor({ selector: ".item:nth-child(N+1)" })
 listTabs()
 openTab({ url: "https://example.com" })  // 自动 attach
 → 在新 tab 操作
-detachTab({ tabId })  // 完成后释放
 ```
 
 ## Safety / quota rails
@@ -150,8 +151,8 @@ detachTab({ tabId })  // 完成后释放
 
 - ❌ 不要在 `runJS` 里直接读 cookie / localStorage（会被静态扫描归 dangerous，每次问审批）
 - ❌ 不要循环调 `snapshotDOM`——单次抓全树用 `maxDepth` 而不是多次
-- ❌ 不要把 `askUser` 当闲聊（每次弹窗用户都要点确认）
-- ❌ 不要无视 `attachedTabs`——AI 跨 tab 操作前用 `attachTab` 申请
+- ❌ 不要在回复里频繁向用户确认（每次都要用户手动响应）
+- ❌ 不要无视 `attachedTabs`——跨 tab 操作前确认目标 tab 未被其他会话占用（`list_tabs` 的 `busy`）
 
 ## When to use
 

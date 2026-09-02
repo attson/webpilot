@@ -56,7 +56,10 @@ listen 端口的能力，所以方向只能如此。这也是配对页存在的�
 MCP 层的描述是精简英文（≈2.5k tokens for core），侧边栏内置 LLM 仍用中文长描述；两者共享同一份 `TOOL_DEFS`，靠 `mcp` 字段区分。
 
 工具列表会和扩展 `HELLO` 里上报的 `supported_tools` 求交集，所以旧版扩展配新版 server 时不会
-出现「列出来但一调就 unknown tool」。字段缺失（Plan 32 之前的扩展）时回落到旧的 19 个。
+出现「列出来但一调就 unknown tool」。字段缺失（Plan 32 之前的扩展）时回落到旧版扩展支持的内置
+工具集，与 core 求交集后只剩 9 个（`extractText / click / fillInput / selectOption / setCheckbox /
+hover / uploadFile / scroll / waitFor`）；`browser_storage` 也不会列出，因为旧版没有
+`writeStorage`。请升级扩展。
 
 ### 环境变量 `ATWEBPILOT_MCP_TOOLS`
 

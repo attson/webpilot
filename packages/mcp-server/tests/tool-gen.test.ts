@@ -171,7 +171,7 @@ describe("merged tools", () => {
     expect(click.resolve).toBeUndefined();
   });
 
-  it("full mode has 55 - 5 + 2 = 51 browser tools", () => {
+  it("full mode has 58 - 3 blocked - 6 merged-away + 2 merged = 51 browser tools", () => {
     expect(full.length).toBe(51);
   });
 });
