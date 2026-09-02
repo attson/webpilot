@@ -56,7 +56,7 @@ claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 |---|---|
 | `list_tabs` | 列出扩展当前挂载的所有 tab，含 `busy` / `mine` 占用标记 |
 | `open_session` | 开启一个 session，绑定某 tab |
-| `browser_*` × 54 | 扩展全部内置工具的 MCP 包装 |
+| `browser_*` × 51 | 扩展全部内置工具的 MCP 包装 |
 | `get_quota` | 查询当前 session 剩余次数 |
 | `close_session` | 关闭 session |
 | `atwebpilot_skill_read` | 读取推荐的工具使用流程与安全约定 |
