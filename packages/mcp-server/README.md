@@ -49,8 +49,11 @@ listen 端口的能力，所以方向只能如此。这也是配对页存在的�
 ## 工具面
 
 - 控制面 4 个：`list_tabs / open_session / close_session / get_quota`
-- 执行面 54 个 `browser_*`：扩展的全部内置工具，除了 `askUser`（MCP 会话没有人在侧边栏应答）和
-  `attachTab` / `detachTab`（侧边栏多 tab 记账，MCP 的目标 tab 已由 `open_session` 绑定）。
+- 发现 1 个：`browser_discoverTools` —— 不带参数返回未发布工具目录（按 `export / network / storage / browser-data / inspect / legacy-dom / form` 分组）；带 `enable: [...]` 把它们加进本进程的 `tools/list`（发送 `tools/list_changed`），并直接返回完整 schema。
+- 执行面默认 **core 32 个** `browser_*`：浏览 / 采集 / 填表 / 导航 / 截图 闭环所需的工具。其余 19 个由 AI 按需 `discoverTools` 拉取，用户不用配置。
+- 不暴露 `askUser`（MCP 会话没有人在侧边栏应答）和 `attachTab` / `detachTab`（目标 tab 已由 `open_session` 绑定）。
+
+MCP 层的描述是精简英文（≈2.5k tokens for core），侧边栏内置 LLM 仍用中文长描述；两者共享同一份 `TOOL_DEFS`，靠 `mcp` 字段区分。
 
 工具列表会和扩展 `HELLO` 里上报的 `supported_tools` 求交集，所以旧版扩展配新版 server 时不会
 出现「列出来但一调就 unknown tool」。字段缺失（Plan 32 之前的扩展）时回落到旧的 19 个。
@@ -59,10 +62,20 @@ listen 端口的能力，所以方向只能如此。这也是配对页存在的�
 
 | 值 | 效果 |
 |---|---|
-| `full`（默认） | 全部 54 个 |
-| `parity` | 只出对标 playwright-ext 那 24 个能力的子集，省上下文 |
+| `core`（默认） | 32 个核心工具 + `browser_discoverTools`，其余按需发现 |
+| `full` | 一开始就全部列出（51 个），适合不想让 AI 多一步发现的用户 |
 
-无法识别的值按 `full` 处理，并往 stderr 打一条提示。
+无法识别的值（包括已移除的 `parity`）按 `core` 处理，并往 stderr 打一条提示。
+
+### 从 0.0.70 及更早版本迁移
+
+| 旧 | 新 |
+|---|---|
+| `browser_navigateBack` / `browser_navigateForward` | `browser_navigate({ action: "back" \| "forward" })` |
+| `browser_highlightElement` / `browser_highlightText` | `browser_highlight({ selector \| uid \| text })` |
+| `browser_readStorage` / `browser_writeStorage` | `browser_storage({ op: "get" \| "set", store, key, value? })` |
+| `ATWEBPILOT_MCP_TOOLS=parity` | 已移除；默认即 `core` |
+| 默认列出全部工具 | 默认只列 core；其余通过 `browser_discoverTools` 获取，或设 `ATWEBPILOT_MCP_TOOLS=full` |
 
 ## 替代 playwright-ext
 
@@ -78,7 +91,7 @@ listen 端口的能力，所以方向只能如此。这也是配对页存在的�
 | `browser_select_option` / `browser_hover` / `browser_press_key` | 同名去掉下划线：`browser_selectOption` / `browser_hover` / `browser_pressKey` |
 | `browser_drag` / `browser_drop` | `browser_drag` / `browser_drop` |
 | `browser_file_upload` | `browser_uploadFile` |
-| `browser_navigate` / `browser_navigate_back` | `browser_navigate` / `browser_navigateBack`（另有 `navigateForward`） |
+| `browser_navigate` / `browser_navigate_back` | `browser_navigate`（`action: goto | back | forward | reload`） |
 | `browser_tabs` | `browser_listTabs` / `openTab` / `closeTab` / `switchToTab` |
 | `browser_close` | `browser_closeTab` |
 | `browser_resize` | `browser_resize` |

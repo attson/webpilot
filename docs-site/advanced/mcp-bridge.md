@@ -48,7 +48,7 @@ claude mcp add atwebpilot --scope user -- npx -y @attson/atwebpilot-mcp
 |---|---|
 | `ATWEBPILOT_WS_PORT` | 固定端口。默认是自动选一个空闲端口并复用上次那个 |
 | `ATWEBPILOT_WS_TOKEN` | 要求扩展带 `bearer.<token>` 子协议 |
-| `ATWEBPILOT_MCP_TOOLS` | `full`（默认，54 个）或 `parity`（只出对标 playwright-ext 的子集，省上下文） |
+| `ATWEBPILOT_MCP_TOOLS` | `core`（默认，32 个 + `browser_discoverTools` 按需发现其余）或 `full`（一开始全部 51 个） |
 
 ## Codex / Claude Code 可用的 MCP tools
 
@@ -80,7 +80,7 @@ playwright-ext 的每个能力这里都有对应项（名字是 AtWebPilot 的�
 | `browser_find` | `browser_findElements` |
 | `browser_click` / `browser_type` | `browser_click`（含 `doubleClick`/`button`/`modifiers`）、`browser_fillInput`（含 `slowly`/`submit`） |
 | `browser_drag` / `browser_drop` | 同名 |
-| `browser_navigate` / `browser_navigate_back` | `browser_navigate` / `browser_navigateBack` |
+| `browser_navigate` / `browser_navigate_back` | `browser_navigate`（`action: goto | back | forward | reload`） |
 | `browser_resize` | `browser_resize` |
 | `browser_take_screenshot` | `browser_screenshot`（含 `fullPage` / `format` / `scale`） |
 | `browser_wait_for` | `browser_waitFor`（含 `text` / `textGone`） |
