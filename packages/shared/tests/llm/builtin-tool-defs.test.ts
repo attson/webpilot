@@ -66,3 +66,28 @@ describe("Plan 32 parity tool defs", () => {
     );
   });
 });
+
+describe("mcp short descriptions", () => {
+  const MCP_BLOCKED = new Set(["askUser", "attachTab", "detachTab"]);
+  const exposed = TOOL_DEFS.filter((t) => !MCP_BLOCKED.has(t.name));
+
+  it("every MCP-exposed tool has an English mcp.description under 240 chars", () => {
+    for (const t of exposed) {
+      const d = t.mcp?.description;
+      expect(typeof d, t.name).toBe("string");
+      expect(d!.length, t.name).toBeLessThanOrEqual(240);
+      // No CJK characters: MCP descriptions are English to keep token cost down.
+      expect(d, t.name).not.toMatch(/[一-鿿]/);
+    }
+  });
+
+  it("mcp.params only names properties that exist and are English", () => {
+    for (const t of exposed) {
+      const props = (t.input_schema as { properties?: Record<string, unknown> }).properties ?? {};
+      for (const [k, v] of Object.entries(t.mcp?.params ?? {})) {
+        expect(props[k], `${t.name}.${k}`).toBeTruthy();
+        expect(v, `${t.name}.${k}`).not.toMatch(/[一-鿿]/);
+      }
+    }
+  });
+});
