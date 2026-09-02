@@ -153,6 +153,40 @@ describe("dispatchCall", () => {
     await dispatchCall(d, "browser_runJS", { session_id, source: "return document.cookie" });
     expect(coordinator.quotaFor(session_id)?.dangerous_used).toBe(1);
   });
+
+  it("forwards browser_storage to readStorage/writeStorage and charges dangerous on both", async () => {
+    const coordinator = new Coordinator({
+      hub: { send: async () => undefined } as any,
+      clock: new FakeClock(0),
+      idGen: new FakeIdGen()
+    });
+    coordinator.registerWorker(fakeWorker());
+    const calls: Array<{ step: unknown }> = [];
+    const d = staticDeps(coordinator, {
+      exec: async (_workerId: string, params: { step: unknown }) => { calls.push(params); return okResult; }
+    } as any);
+    const open = await dispatchCall(d, "open_session", { tab_id: "42" });
+    const session_id = JSON.parse(textOf(open)).session_id;
+
+    const r1 = await dispatchCall(d, "browser_storage", { session_id, op: "get", store: "local", key: "k" });
+    expect(r1.isError).toBeFalsy();
+    const r2 = await dispatchCall(d, "browser_storage", { session_id, op: "set", store: "local", key: "k", value: "v" });
+    expect(r2.isError).toBeFalsy();
+    expect(calls.map((c) => c.step)).toEqual([
+      { kind: "tool", tool: "readStorage", args: { store: "local", key: "k" } },
+      { kind: "tool", tool: "writeStorage", args: { store: "local", key: "k", value: "v" } }
+    ]);
+    expect(coordinator.quotaFor(session_id)?.dangerous_used).toBe(2);
+  });
+
+  it("returns isError on an invalid merged-tool argument set", async () => {
+    const d = deps();
+    const open = await dispatchCall(d, "open_session", { tab_id: "42" });
+    const session_id = JSON.parse(textOf(open)).session_id;
+    const r = await dispatchCall(d, "browser_highlight", { session_id });
+    expect(r.isError).toBe(true);
+    expect(textOf(r)).toMatch(/InvalidArgs/);
+  });
 });
 
 describe("image results", () => {

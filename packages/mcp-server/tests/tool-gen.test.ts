@@ -11,8 +11,8 @@ describe("generateBrowserTools", () => {
 
   it("exposes every tool except the block-list", () => {
     const names = tools.map((t) => t.builtinTool);
-    // 58 TOOL_DEFS minus the three blocked ones.
-    expect(names).toHaveLength(55);
+    // 58 TOOL_DEFS minus three blocked, minus six merged into two.
+    expect(names).toHaveLength(51);
     for (const b of BLOCKED_TOOLS) expect(names).not.toContain(b);
     expect(new Set(names).size).toBe(names.length);
   });
@@ -44,8 +44,6 @@ describe("generateBrowserTools", () => {
       "browser_drag",
       "browser_drop",
       "browser_resize",
-      "browser_navigateBack",
-      "browser_navigateForward",
       "browser_findElements"
     ]) {
       expect(names.has(n), n).toBe(true);
@@ -126,6 +124,52 @@ describe("mcp descriptions", () => {
     for (const t of tools) {
       expect(JSON.stringify({ d: t.description, s: t.inputSchema }), t.name).not.toMatch(/[一-鿿]/);
     }
+  });
+});
+
+describe("merged tools", () => {
+  const full = generateBrowserTools("full");
+  const byName = new Map(full.map((t) => [t.name, t]));
+
+  it("removes navigateBack/navigateForward in favour of navigate({action})", () => {
+    expect(byName.has("browser_navigateBack")).toBe(false);
+    expect(byName.has("browser_navigateForward")).toBe(false);
+    expect(byName.has("browser_navigate")).toBe(true);
+  });
+
+  it("exposes browser_highlight resolving to highlightText or highlightElement", () => {
+    const h = byName.get("browser_highlight")!;
+    expect(byName.has("browser_highlightElement")).toBe(false);
+    expect(byName.has("browser_highlightText")).toBe(false);
+    expect([...h.builtinTools].sort()).toEqual(["highlightElement", "highlightText"]);
+    expect(h.resolve!({ text: "hello", ms: 500 })).toEqual({ builtinTool: "highlightText", args: { text: "hello", ms: 500 } });
+    expect(h.resolve!({ selector: ".x" })).toEqual({ builtinTool: "highlightElement", args: { selector: ".x" } });
+    expect(h.resolve!({ uid: "el_1" })).toEqual({ builtinTool: "highlightElement", args: { uid: "el_1" } });
+    expect(() => h.resolve!({})).toThrow(/InvalidArgs/);
+    expect(() => h.resolve!({ text: "a", selector: ".x" })).toThrow(/InvalidArgs/);
+  });
+
+  it("exposes browser_storage resolving on op", () => {
+    const s = byName.get("browser_storage")!;
+    expect(byName.has("browser_readStorage")).toBe(false);
+    expect(byName.has("browser_writeStorage")).toBe(false);
+    expect([...s.builtinTools].sort()).toEqual(["readStorage", "writeStorage"]);
+    expect(s.resolve!({ op: "get", store: "local", key: "k" })).toEqual({ builtinTool: "readStorage", args: { store: "local", key: "k" } });
+    expect(s.resolve!({ op: "set", store: "session", key: "k", value: "v" })).toEqual({ builtinTool: "writeStorage", args: { store: "session", key: "k", value: "v" } });
+    expect(() => s.resolve!({ op: "set", store: "local", key: "k" })).toThrow(/InvalidArgs/);
+    expect(() => s.resolve!({ op: "delete", store: "local", key: "k" })).toThrow(/InvalidArgs/);
+    expect((s.inputSchema.properties!.op as { enum: string[] }).enum).toEqual(["get", "set"]);
+    expect(s.inputSchema.required).toEqual(expect.arrayContaining(["op", "store", "key", "session_id"]));
+  });
+
+  it("plain tools carry a single builtin and no resolve", () => {
+    const click = byName.get("browser_click")!;
+    expect(click.builtinTools).toEqual(["click"]);
+    expect(click.resolve).toBeUndefined();
+  });
+
+  it("full mode has 55 - 5 + 2 = 51 browser tools", () => {
+    expect(full.length).toBe(51);
   });
 });
 

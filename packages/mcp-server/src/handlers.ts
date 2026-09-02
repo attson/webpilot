@@ -122,8 +122,9 @@ export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Re
   if (!session) throw new Error(`session ${session_id} not found`);
 
   const { session_id: _omit, ...suppliedToolArgs } = args;
-  const toolArgs: Record<string, unknown> = { ...suppliedToolArgs };
-  const tool = gen.builtinTool as BuiltinTool;
+  const resolved = gen.resolve ? gen.resolve(suppliedToolArgs) : { builtinTool: gen.builtinTool, args: suppliedToolArgs };
+  const toolArgs: Record<string, unknown> = { ...resolved.args };
+  const tool = resolved.builtinTool as BuiltinTool;
 
   // The scanner lives in shared, so MCP can select the same capability tier as
   // the extension before the step crosses the websocket.
@@ -157,7 +158,7 @@ export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Re
   // MCP tools are session-bound, so their schema intentionally omits tabId.
   // These two tools use tabId as their command argument rather than as a route
   // override; supply the bound tab explicitly for the background handler.
-  if (gen.builtinTool === "switchToTab" || gen.builtinTool === "closeTab") {
+  if (tool === "switchToTab" || tool === "closeTab") {
     const boundTabId = Number.parseInt(session.tab_id, 10);
     if (!Number.isFinite(boundTabId)) {
       throw new Error(`InvalidArgs: session tab_id "${session.tab_id}" is not numeric`);
@@ -165,7 +166,7 @@ export async function handleBrowserTool(deps: Deps, gen: GeneratedTool, args: Re
     toolArgs.tabId = boundTabId;
   }
 
-  const override = NON_BUILTIN_CAPABILITY[gen.builtinTool];
+  const override = NON_BUILTIN_CAPABILITY[tool];
   if (override) {
     const v = coordinator.validateCall({ session_id, kind: "capability", capability: override });
     if (!v.ok) throw new Error(`${v.error.code}: ${v.error.message}`);

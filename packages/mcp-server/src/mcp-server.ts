@@ -19,7 +19,9 @@ export type CallResult = { content: ContentBlock[]; isError?: boolean };
 
 const TOOL_MODE = readToolMode(process.env);
 const BROWSER_TOOLS: GeneratedTool[] = generateBrowserTools(TOOL_MODE);
-const BROWSER_BY_NAME = new Map(BROWSER_TOOLS.map((t) => [t.name, t]));
+/** Every tool the server can execute, regardless of what is currently advertised. */
+const ALL_BROWSER_TOOLS: GeneratedTool[] = generateBrowserTools("full");
+const BROWSER_BY_NAME = new Map(ALL_BROWSER_TOOLS.map((t) => [t.name, t]));
 
 /**
  * The surface an extension predating Plan 32 can execute. Used when a worker
@@ -51,7 +53,7 @@ function workerToolSupport(deps?: Deps): ReadonlySet<string> | undefined {
 export function buildToolList(deps?: Deps): ToolListEntry[] {
   const supported = workerToolSupport(deps);
   const browser = supported
-    ? BROWSER_TOOLS.filter((t) => supported.has(t.builtinTool))
+    ? BROWSER_TOOLS.filter((t) => t.builtinTools.every((b) => supported.has(b)))
     : BROWSER_TOOLS;
   return [
     { name: SKILL_TOOL.name, description: SKILL_TOOL.description, inputSchema: SKILL_TOOL.inputSchema as JsonSchema },

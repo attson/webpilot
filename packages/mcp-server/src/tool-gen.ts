@@ -39,11 +39,19 @@ const JS_STEP_TOOLS = new Set<string>(["runJS"]);
 
 export type GeneratedTool = {
   name: string;
+  /** Default/first builtin; what `tools/list` filtering and legacy paths use. */
   builtinTool: string;
+  /** Every builtin this MCP tool may resolve to. Length 1 unless merged. */
+  builtinTools: readonly string[];
   description: string;
   resultKind: "json" | "image";
   stepKind: "tool" | "js";
   inputSchema: { type: string; properties?: Record<string, JsonSchema>; required?: string[] };
+  /**
+   * Merged tools pick their real builtin from the arguments. Runs before
+   * capability validation so tiers and dangerous accounting see the builtin.
+   */
+  resolve?: (args: Record<string, unknown>) => { builtinTool: string; args: Record<string, unknown> };
 };
 
 const SESSION_ID_FIELD: JsonSchema = {
@@ -96,6 +104,7 @@ function fromDef(t: LlmTool): GeneratedTool {
   return {
     name: `browser_${t.name}`,
     builtinTool: t.name,
+    builtinTools: [t.name],
     description: t.mcp?.description ?? t.description,
     resultKind: IMAGE_RESULT_TOOLS.has(t.name) ? "image" : "json",
     stepKind: JS_STEP_TOOLS.has(t.name) ? "js" : "tool",
@@ -103,12 +112,89 @@ function fromDef(t: LlmTool): GeneratedTool {
   };
 }
 
+/**
+ * TOOL_DEFS entries folded into another MCP tool. They stay available to the
+ * side panel; over MCP they are reached through the merged tool below or,
+ * for back/forward, through navigate({action}).
+ */
+export const MERGED_AWAY_TOOLS = new Set<string>([
+  "navigateBack", "navigateForward",
+  "highlightElement", "highlightText",
+  "readStorage", "writeStorage"
+]);
+
+function schemaWithSession(
+  properties: Record<string, JsonSchema>,
+  required: string[]
+): GeneratedTool["inputSchema"] {
+  return { type: "object", properties: { ...properties, session_id: SESSION_ID_FIELD }, required: [...required, "session_id"] };
+}
+
+const STORE_ENUM = { type: "string", enum: ["local", "session"] } as JsonSchema;
+
+export const MERGED_TOOLS: GeneratedTool[] = [
+  {
+    name: "browser_highlight",
+    builtinTool: "highlightElement",
+    builtinTools: ["highlightElement", "highlightText"],
+    description: "Temporarily outline an element (selector or uid) or highlight the first occurrence of text. Visual only; exactly one of text/selector/uid.",
+    resultKind: "json",
+    stepKind: "tool",
+    inputSchema: schemaWithSession(
+      {
+        text: { type: "string" } as JsonSchema,
+        selector: { type: "string" } as JsonSchema,
+        uid: { type: "string" } as JsonSchema,
+        ms: { type: "integer", default: 3000 } as JsonSchema
+      },
+      []
+    ),
+    resolve(args) {
+      const given = ["text", "selector", "uid"].filter((k) => args[k] != null && args[k] !== "");
+      if (given.length !== 1) {
+        throw new Error("InvalidArgs: browser_highlight needs exactly one of text / selector / uid");
+      }
+      const { text, selector, uid, ms } = args;
+      const withMs = (o: Record<string, unknown>) => (ms == null ? o : { ...o, ms });
+      if (given[0] === "text") return { builtinTool: "highlightText", args: withMs({ text }) };
+      return { builtinTool: "highlightElement", args: withMs(selector != null ? { selector } : { uid }) };
+    }
+  },
+  {
+    name: "browser_storage",
+    builtinTool: "readStorage",
+    builtinTools: ["readStorage", "writeStorage"],
+    description: "Read (op=get) or write (op=set, needs value) one key in localStorage or sessionStorage. Dangerous, reviewed.",
+    resultKind: "json",
+    stepKind: "tool",
+    inputSchema: schemaWithSession(
+      {
+        op: { type: "string", enum: ["get", "set"] } as JsonSchema,
+        store: STORE_ENUM,
+        key: { type: "string" } as JsonSchema,
+        value: { type: "string", description: "set only; JSON.stringify non-strings yourself" } as JsonSchema
+      },
+      ["op", "store", "key"]
+    ),
+    resolve(args) {
+      const { op, store, key, value } = args;
+      if (op === "get") return { builtinTool: "readStorage", args: { store, key } };
+      if (op === "set") {
+        if (typeof value !== "string") throw new Error("InvalidArgs: browser_storage op=set requires a string value");
+        return { builtinTool: "writeStorage", args: { store, key, value } };
+      }
+      throw new Error(`InvalidArgs: browser_storage op must be "get" or "set", got ${JSON.stringify(op)}`);
+    }
+  }
+];
+
 export function generateBrowserTools(mode: ToolMode = "core"): GeneratedTool[] {
   const core = new Set(CORE_TOOLS);
-  return TOOL_DEFS.filter((t) => {
-    if (BLOCKED_TOOLS.has(t.name)) return false;
+  const plain = TOOL_DEFS.filter((t) => {
+    if (BLOCKED_TOOLS.has(t.name) || MERGED_AWAY_TOOLS.has(t.name)) return false;
     return mode === "full" || core.has(t.name);
   }).map(fromDef);
+  return mode === "full" ? [...plain, ...MERGED_TOOLS] : plain;
 }
 
 /**
