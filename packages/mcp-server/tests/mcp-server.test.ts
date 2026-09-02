@@ -282,4 +282,19 @@ describe("discovery over MCP", () => {
     expect(names).toContain("browser_click");
     expect(names).not.toContain("browser_storage"); // writeStorage missing
   });
+
+  it("enable on an unsupported tool reports unsupported and never advertises it", async () => {
+    const state = createToolState("core");
+    const coordinator = new Coordinator({ hub: { send: async () => undefined } as any, clock: new FakeClock(0), idGen: new FakeIdGen() });
+    coordinator.registerWorker({ ...fakeWorker(), supported_tools: new Set(["downloadImage"]) });
+    const d = staticDeps(coordinator, { exec: async () => okResult } as any);
+
+    const r = await dispatchCall(d, "browser_discoverTools", { enable: ["browser_storage"] }, undefined, state);
+    const body = JSON.parse(textOf(r));
+    expect(body.unsupported).toEqual(["browser_storage"]);
+    expect(body.enabled ?? []).toEqual([]);
+
+    const names = buildToolList(d, state).map((t) => t.name);
+    expect(names).not.toContain("browser_storage");
+  });
 });

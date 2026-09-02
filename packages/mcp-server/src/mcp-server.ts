@@ -105,7 +105,10 @@ export async function dispatchCall(
       return { content: [{ type: "text", text: bundle.content }] };
     }
     if (name === DISCOVER_TOOL.name) {
-      const r = handleDiscover({ all: ALL_BROWSER_TOOLS, advertised: state.advertised, args });
+      const r = handleDiscover({
+        all: ALL_BROWSER_TOOLS, advertised: state.advertised, args,
+        supported: workerToolSupport(deps)
+      });
       if (r.changed && onListChanged) await onListChanged();
       const { changed: _c, ...body } = r;
       return ok(body);

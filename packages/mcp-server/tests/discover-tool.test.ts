@@ -48,4 +48,35 @@ describe("browser_discoverTools", () => {
     const r = handleDiscover({ all, advertised, args: { enable: ["downloadSpreadsheet"] } });
     expect(r.enabled!.map((t) => t.name)).toEqual(["browser_downloadSpreadsheet"]);
   });
+
+  it("catalog omits tools the worker cannot run", () => {
+    const advertised = coreNames();
+    const supported = new Set(["downloadImage"]);
+    const r = handleDiscover({ all, advertised, args: {}, supported });
+    const names = r.catalog!.map((c) => c.name);
+    expect(names).toContain("browser_downloadImage");
+    expect(names).not.toContain("browser_downloadSpreadsheet");
+    expect(names).not.toContain("browser_storage");
+  });
+
+  it("enable routes unsupported names to `unsupported` without advertising them", () => {
+    const advertised = coreNames();
+    const supported = new Set(["downloadImage", "readStorage"]);
+    const r = handleDiscover({
+      all, advertised,
+      args: { enable: ["browser_storage", "browser_downloadImage"] },
+      supported
+    });
+    expect(r.enabled!.map((t) => t.name)).toEqual(["browser_downloadImage"]);
+    expect(r.unsupported).toEqual(["browser_storage"]);
+    expect(advertised.has("browser_storage")).toBe(false);
+    expect(r.changed).toBe(true);
+  });
+
+  it("undefined supported means everything is runnable", () => {
+    const advertised = coreNames();
+    const before = advertised.size;
+    const r = handleDiscover({ all, advertised, args: {} });
+    expect(r.catalog!.length).toBe(all.length - before);
+  });
 });
