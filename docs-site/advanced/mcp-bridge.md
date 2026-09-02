@@ -80,7 +80,7 @@ playwright-ext 的每个能力这里都有对应项（名字是 AtWebPilot 的�
 | `browser_find` | `browser_findElements` |
 | `browser_click` / `browser_type` | `browser_click`（含 `doubleClick`/`button`/`modifiers`）、`browser_fillInput`（含 `slowly`/`submit`） |
 | `browser_drag` / `browser_drop` | 同名 |
-| `browser_navigate` / `browser_navigate_back` | `browser_navigate`（`action: goto | back | forward | reload`） |
+| `browser_navigate` / `browser_navigate_back` | `browser_navigate`（`action` 取 `goto` / `back` / `forward` / `reload`） |
 | `browser_resize` | `browser_resize` |
 | `browser_take_screenshot` | `browser_screenshot`（含 `fullPage` / `format` / `scale`） |
 | `browser_wait_for` | `browser_waitFor`（含 `text` / `textGone`） |

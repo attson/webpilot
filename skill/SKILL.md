@@ -32,7 +32,7 @@ All of these are prefixed `browser_` over MCP, e.g. `browser_takeSnapshot`.
 | page state（safe） | `takeSnapshot`, `findElements`, `getPageInfo`, `extractText` |
 | page index（safe） | `createPageIndex`, `searchPageIndex`, `readPageBlock`, `extractPageFields` |
 | interaction（caution） | `clickByUid`, `click`, `fillByUid`, `fillInput`, `fillForm`, `selectOption`, `setCheckbox`, `hover`, `pressKey`, `drag`, `drop`（files ⇒ dangerous）, `uploadFile`（dangerous） |
-| navigation / tabs | `navigate`（`action: back|forward|reload|goto`）, `listTabs`, `openTab`, `closeTab`, `switchToTab`, `resize`, `scroll` |
+| navigation / tabs | `navigate`（`action` 取 `back` / `forward` / `reload` / `goto`）, `listTabs`, `openTab`, `closeTab`, `switchToTab`, `resize`, `scroll` |
 | observation | `screenshot`, `waitFor`, `runJS`（static-scanned）, `consoleMessages`, `networkRequests` |
 
 **Discoverable — call `browser_discoverTools` first:**
@@ -41,7 +41,7 @@ All of these are prefixed `browser_` over MCP, e.g. `browser_takeSnapshot`.
 |---|---|
 | `export` | `downloadImage`, `downloadSpreadsheet`（real `.xlsx`, multi-sheet） |
 | `network` | `httpRequest`（`withCredentials` ⇒ dangerous）, `networkRequestDetail`（dangerous）, `recorderConfig`, `handleDialog` |
-| `storage` | `storage`（`op: get|set`; dangerous） |
+| `storage` | `storage`（`op` 取 `get` / `set`; dangerous） |
 | `browser-data` | `searchBookmarks`, `searchHistory` |
 | `inspect` | `inspectElement`, `highlight`（`text` or `selector`/`uid`）, `getValue`, `extractFormState` |
 | `legacy-dom` | `snapshotDOM`, `querySelector`, `querySelectorAll`, `extractImages`, `focus` |
@@ -71,7 +71,7 @@ prefer to pay the context cost once.
 
 ## Recommended flow
 
-1. **探查先于操作**：每次进入新页面，先 `snapshotDOM` 看结构，再 `querySelector` 定位关键节点。
+1. **探查先于操作**：每次进入新页面，先 `getPageInfo` 确认位置，再 `takeSnapshot`（要点击/填表）或 `createPageIndex`（要读内容/抽字段）；`snapshotDOM` / `querySelector` 属于 legacy-dom 组，只在需要分析整页结构时通过 `browser_discoverTools` 启用。
 2. **小步快跑**：每次只动一个元素，验证 DOM 变化后再继续，避免连点连填触发反爬。
 3. **dangerous 工具会被人工审核**：调用前用 `extractText` 给用户看上下文，让审批更顺。
 4. **跑不动了就停下来问**：候选不唯一、缺关键信息、需要二次确认时，把问题写在回复里交给用户，不要瞎猜（MCP 会话没有 `askUser`）。
@@ -102,7 +102,7 @@ prefer to pay the context cost once.
 ### 总结此页
 
 ```
-snapshotDOM({ maxDepth: 4 })
+createPageIndex({})
 extractText({ selector: "main, article, .content" })
 → 文本总结
 ```
@@ -110,7 +110,7 @@ extractText({ selector: "main, article, .content" })
 ### 填表 + 提交
 
 ```
-snapshotDOM()  // 找输入框
+takeSnapshot()  // 找输入框
 fillInput({ selector: "#name", value: "张三" })
 setCheckbox({ selector: "#agree", checked: true })
 selectOption({ selector: "#city", value: "北京" })
@@ -119,6 +119,8 @@ selectOption({ selector: "#city", value: "北京" })
 ```
 
 ### 翻页采集
+
+`snapshotDOM` 属于 legacy-dom 组，先 `browser_discoverTools({ enable: ["browser_snapshotDOM"] })` 启用。
 
 ```
 snapshotDOM({ selector: "[data-pagination]" })  // 找翻页结构

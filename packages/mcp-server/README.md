@@ -91,7 +91,7 @@ MCP 层的描述是精简英文（≈2.5k tokens for core），侧边栏内置 L
 | `browser_select_option` / `browser_hover` / `browser_press_key` | 同名去掉下划线：`browser_selectOption` / `browser_hover` / `browser_pressKey` |
 | `browser_drag` / `browser_drop` | `browser_drag` / `browser_drop` |
 | `browser_file_upload` | `browser_uploadFile` |
-| `browser_navigate` / `browser_navigate_back` | `browser_navigate`（`action: goto | back | forward | reload`） |
+| `browser_navigate` / `browser_navigate_back` | `browser_navigate`（`action` 取 `goto` / `back` / `forward` / `reload`） |
 | `browser_tabs` | `browser_listTabs` / `openTab` / `closeTab` / `switchToTab` |
 | `browser_close` | `browser_closeTab` |
 | `browser_resize` | `browser_resize` |
