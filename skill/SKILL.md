@@ -23,34 +23,79 @@ When this skill is loaded, you can drive any open tab through these tools
 
 ### Browser-side built-ins (per session)
 
+All of these are prefixed `browser_` over MCP, e.g. `browser_takeSnapshot`.
+
+**Core — advertised by default (32):**
+
 | Class | Tools |
 |---|---|
-| 探查（safe） | `snapshotDOM`, `takeSnapshot`, `findElements`, `querySelector`, `querySelectorAll`, `extractText`, `extractImages`, `getValue`, `extractFormState`, `getPageInfo`, `hover`, `focus` |
-| 页面索引（safe） | `createPageIndex`, `searchPageIndex`, `readPageBlock`, `extractPageFields` |
-| 流程（safe） | `scroll`, `waitFor`, `navigate`, `navigateBack`, `navigateForward`, `resize` |
-| 交互（caution） | `click`, `clickByUid`, `fillInput`, `fillByUid`, `fillForm`, `setCheckbox`, `selectOption`, `pressKey`, `drag`, `drop` |
-| 观察（safe → dangerous） | `consoleMessages`（safe）, `networkRequests`（caution）, `networkRequestDetail`（**dangerous**）, `handleDialog`, `recorderConfig` |
-| 视觉 | `screenshot`（支持 `fullPage` / `selector` / `blockId`） |
-| 网络（caution / dangerous） | `httpRequest`（按 `withCredentials` 区分）, `runJS`（按静态扫描结果区分） |
-| 重写态（dangerous） | `submitForm`, `uploadFile`, `readStorage`, `writeStorage` |
-| 导出 | `downloadImage`, `downloadSpreadsheet`（真 `.xlsx`，多 sheet） |
-| 跨 tab | `listTabs`, `openTab`, `closeTab`, `switchToTab` |
-| 浏览器数据 | `searchBookmarks`, `searchHistory` |
+| page state（safe） | `takeSnapshot`, `findElements`, `getPageInfo`, `extractText` |
+| page index（safe） | `createPageIndex`, `searchPageIndex`, `readPageBlock`, `extractPageFields` |
+| interaction（caution） | `clickByUid`, `click`, `fillByUid`, `fillInput`, `fillForm`, `selectOption`, `setCheckbox`, `hover`, `pressKey`, `drag`, `drop`（files ⇒ dangerous）, `uploadFile`（dangerous） |
+| navigation / tabs | `navigate`（`action: back|forward|reload|goto`）, `listTabs`, `openTab`, `closeTab`, `switchToTab`, `resize`, `scroll` |
+| observation | `screenshot`, `waitFor`, `runJS`（static-scanned）, `consoleMessages`, `networkRequests` |
 
-All of these are prefixed `browser_` over MCP, e.g. `browser_takeSnapshot`.
+**Discoverable — call `browser_discoverTools` first:**
+
+| Group | Tools |
+|---|---|
+| `export` | `downloadImage`, `downloadSpreadsheet`（real `.xlsx`, multi-sheet） |
+| `network` | `httpRequest`（`withCredentials` ⇒ dangerous）, `networkRequestDetail`（dangerous）, `recorderConfig`, `handleDialog` |
+| `storage` | `storage`（`op: get|set`; dangerous） |
+| `browser-data` | `searchBookmarks`, `searchHistory` |
+| `inspect` | `inspectElement`, `highlight`（`text` or `selector`/`uid`）, `getValue`, `extractFormState` |
+| `legacy-dom` | `snapshotDOM`, `querySelector`, `querySelectorAll`, `extractImages`, `focus` |
+| `form` | `submitForm`（dangerous） |
+
 `askUser`, `attachTab` and `detachTab` are **not** exposed: an MCP session has
 no human at the side panel, and its tab is already bound by `open_session`.
 
-Set `ATWEBPILOT_MCP_TOOLS=parity` to trim the surface to the subset that
-covers playwright-ext one-for-one, if the full list costs too much context.
+### Getting more tools
+
+The default list is deliberately small. When a task needs something outside
+core — exporting a spreadsheet, calling an API with cookies, reading
+localStorage, inspecting a request body, searching history, debugging layout —
+do this, in order:
+
+1. `browser_discoverTools({})` → catalog of everything not yet advertised.
+2. `browser_discoverTools({ enable: ["browser_downloadSpreadsheet", ...] })` →
+   the tools join `tools/list` (a `tools/list_changed` notification is sent)
+   and the response carries their full schemas, so you can call them right away.
+
+**Do not** rebuild these capabilities with `runJS` (`fetch`, CSV blobs,
+`localStorage[...]`). It is slower, loses schema validation, and usually trips
+the dangerous-tier review that the purpose-built tool would have avoided.
+
+`ATWEBPILOT_MCP_TOOLS=full` advertises everything from the start for users who
+prefer to pay the context cost once.
 
 ## Recommended flow
 
 1. **探查先于操作**：每次进入新页面，先 `snapshotDOM` 看结构，再 `querySelector` 定位关键节点。
 2. **小步快跑**：每次只动一个元素，验证 DOM 变化后再继续，避免连点连填触发反爬。
 3. **dangerous 工具会被人工审核**：调用前用 `extractText` 给用户看上下文，让审批更顺。
-4. **跑不动了就 `askUser`**：候选不唯一、缺关键信息、需要二次确认时主动询问，不要瞎猜。
+4. **跑不动了就停下来问**：候选不唯一、缺关键信息、需要二次确认时，把问题写在回复里交给用户，不要瞎猜（MCP 会话没有 `askUser`）。
 5. **完成后给一个简洁的总结**：用户希望看到「做了 N 步，最终结果 X」，不希望看流水账。
+
+## Tool usage notes (moved here from the tool descriptions)
+
+- `snapshotDOM`: `{}` (maxDepth 3) / `{ root: '.main', maxDepth: 5 }` / `{ maxDepth: 8 }`. Prefer `takeSnapshot` when you will click or fill afterwards.
+- `querySelector` / `querySelectorAll`: `{ selector: 'button[type=submit]' }`, `{ selector: '.comment-item', limit: 50 }`.
+- `extractText`: `{ selector: 'h1', single: true }`, `{ selector: 'article p' }`. Never `body` — use `createPageIndex`.
+- `extractImages`: `{}` for the page, `{ root: '.product-gallery' }` for a region.
+- `scroll`: `{ to: 'bottom', max: 5 }` for lazy loading; `{ to: 'bottom', max: 10, untilSelector: '.item:nth-child(20)' }` to stop once content appears.
+- `waitFor`: `{ ms: 500 }` or `{ selector: '.lazy-loaded', timeoutMs: 8000 }`.
+- `fillInput`: `{ selector: 'input[name=email]', value: 'a@b.c' }`; `clear: false` appends.
+- `fillForm`: `{ fields: [{ selector: 'input[name=name]', value: '张三' }, { uid: 'el_5', value: 'mushroom' }] }` — much cheaper than repeated `fillInput`.
+- `pressKey`: `{ selector: 'input[name=q]', key: 'Enter' }` submits a form-less search; `{ key: 'Escape' }` closes a modal.
+- `navigate`: `{ action: 'back' }`, `{ action: 'goto', url: 'https://example.com/page' }`.
+- `httpRequest`: `{ url: '.../api/comments?page=2' }` (no cookies) vs `{ url, withCredentials: true }` (cookied, reviewed).
+- `consoleMessages`: `{ level: 'error', limit: 50 }`; incremental polling with `{ sinceId }`.
+- `networkRequestDetail`: arm bodies first with `recorderConfig({ bodies: true })` in main-world mode.
+- `drop`: `{ selector: '#dropzone', files: [{ name: 'a.csv', mimeType: 'text/csv', base64: '...' }] }`.
+- `downloadSpreadsheet`: `{ filename: 'items', sheets: [{ name: 'Sheet1', rows: [{ title: 'A', price: 12 }], columns: [{ key: 'title', header: '标题' }, { key: 'price' }] }] }`.
+- `storage`: `{ op: 'get', store: 'local', key: 'token' }`, `{ op: 'set', store: 'session', key: 'k', value: '{"a":1}' }`.
+- `highlight`: `{ text: 'Checkout' }` or `{ selector: '#pay' }` / `{ uid: 'el_3' }`; visual only, 3 s by default.
 
 ## Scenarios
 
