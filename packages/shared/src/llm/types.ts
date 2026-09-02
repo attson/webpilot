@@ -4,6 +4,17 @@ export type LlmTool = {
   name: string;
   description: string;
   input_schema: JsonSchema;
+  /**
+   * Short English wording for the MCP surface. `description` above is written
+   * for the side-panel LLM (examples, cross-tool guidance, Chinese); the MCP
+   * agent gets the strategy from the skill bundle instead, so its tool list
+   * only needs "what + when". Absent ⇒ MCP falls back to `description`.
+   */
+  mcp?: {
+    description: string;
+    /** Property-level overrides; a property not listed here loses its description over MCP. */
+    params?: Record<string, string>;
+  };
 };
 
 export type LlmStreamEvent =
