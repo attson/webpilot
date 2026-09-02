@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Coordinator, FakeClock, FakeIdGen, type Worker } from "@atwebpilot/coordinator";
-import { LEGACY_TOOLS, buildToolList } from "../src/mcp-server";
+import { buildToolList } from "../src/mcp-server";
 import { staticDeps } from "../src/handlers";
 import { helloToWorker } from "../src/wire";
 import type { Hello } from "@atwebpilot/shared/protocol";
@@ -35,18 +35,19 @@ const browserNames = (list: Array<{ name: string }>) =>
   list.map((t) => t.name).filter((n) => n.startsWith("browser_"));
 
 describe("supported_tools negotiation", () => {
-  it("advertises the full surface when no worker has connected yet", () => {
+  it("advertises the default (core) surface when no worker has connected yet", () => {
     // tools/list is routinely called before the browser attaches; answering
     // with nothing then would be worse than answering optimistically.
-    expect(browserNames(buildToolList(depsWith()))).toHaveLength(55);
+    expect(browserNames(buildToolList(depsWith()))).toHaveLength(32);
   });
 
   it("intersects against what the worker reports", () => {
     const list = buildToolList(depsWith(worker(["click", "snapshotDOM", "drag"])));
+    // snapshotDOM is not part of the default core surface, so it never
+    // reaches the advertised list even though the worker supports it.
     expect(browserNames(list).sort()).toEqual([
       "browser_click",
-      "browser_drag",
-      "browser_snapshotDOM"
+      "browser_drag"
     ]);
   });
 
@@ -65,7 +66,9 @@ describe("supported_tools negotiation", () => {
 
   it("falls back to the legacy surface for an extension that predates the field", () => {
     const list = buildToolList(depsWith(worker(undefined)));
-    expect(browserNames(list)).toHaveLength(LEGACY_TOOLS.length);
+    // intersected against the default core surface: only names present in
+    // both LEGACY_TOOLS and CORE_TOOLS are advertised.
+    expect(browserNames(list)).toHaveLength(9);
     expect(browserNames(list)).toContain("browser_click");
     expect(browserNames(list)).not.toContain("browser_drag");
   });

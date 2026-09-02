@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   BLOCKED_TOOLS,
-  PARITY_TOOLS,
+  CORE_TOOLS,
   generateBrowserTools,
   readToolMode
 } from "../src/tool-gen";
 
 describe("generateBrowserTools", () => {
-  const tools = generateBrowserTools();
+  const tools = generateBrowserTools("full");
 
   it("exposes every tool except the block-list", () => {
     const names = tools.map((t) => t.builtinTool);
@@ -84,43 +84,61 @@ describe("generateBrowserTools", () => {
   });
 });
 
-describe("parity mode", () => {
-  it("is a strict subset of full", () => {
-    const parity = generateBrowserTools("parity").map((t) => t.builtinTool);
+describe("core mode", () => {
+  it("is the documented core set and a strict subset of full", () => {
+    const core = generateBrowserTools("core").map((t) => t.builtinTool);
     const full = new Set(generateBrowserTools("full").map((t) => t.builtinTool));
-    expect(parity.length).toBe(PARITY_TOOLS.length);
-    for (const n of parity) expect(full.has(n), n).toBe(true);
+    expect(core.sort()).toEqual([...CORE_TOOLS].sort());
+    for (const n of core) expect(full.has(n), n).toBe(true);
   });
 
-  it("covers playwright-ext's surface", () => {
-    const parity = new Set(generateBrowserTools("parity").map((t) => t.builtinTool));
+  it("covers browse / scrape / fill / navigate / capture without discovery", () => {
+    const core = new Set(generateBrowserTools("core").map((t) => t.builtinTool));
     for (const n of [
-      "takeSnapshot", "click", "fillInput", "selectOption", "hover", "pressKey",
-      "drag", "drop", "uploadFile", "navigate", "navigateBack", "resize",
-      "screenshot", "runJS", "waitFor", "findElements",
-      "consoleMessages", "networkRequests"
-    ]) {
-      expect(parity.has(n), n).toBe(true);
+      "takeSnapshot", "findElements", "getPageInfo", "extractText",
+      "createPageIndex", "searchPageIndex", "readPageBlock", "extractPageFields",
+      "clickByUid", "click", "fillByUid", "fillInput", "fillForm", "selectOption", "setCheckbox",
+      "hover", "pressKey", "drag", "drop", "uploadFile",
+      "navigate", "listTabs", "openTab", "closeTab", "switchToTab", "resize", "scroll",
+      "screenshot", "waitFor", "runJS", "consoleMessages", "networkRequests"
+    ]) expect(core.has(n), n).toBe(true);
+    for (const n of ["downloadSpreadsheet", "httpRequest", "readStorage", "snapshotDOM", "searchHistory"]) {
+      expect(core.has(n), n).toBe(false);
     }
   });
+});
 
-  it("every parity name actually exists in the full surface", () => {
-    const full = new Set(generateBrowserTools("full").map((t) => t.builtinTool));
-    for (const n of PARITY_TOOLS) expect(full.has(n), n).toBe(true);
+describe("mcp descriptions", () => {
+  const tools = generateBrowserTools("full");
+  it("uses the English mcp.description, not the side-panel text", () => {
+    const click = tools.find((t) => t.builtinTool === "click")!;
+    expect(click.description).not.toMatch(/[一-鿿]/);
+    expect(click.description).toMatch(/^Click/);
+  });
+  it("keeps only mcp.params property descriptions and a short session_id", () => {
+    const fill = tools.find((t) => t.builtinTool === "fillInput")!;
+    const props = fill.inputSchema.properties as Record<string, { description?: string }>;
+    expect(props.slowly.description).toBe("type char by char for controlled components");
+    expect(props.selector.description).toBeUndefined();
+    expect(props.session_id.description).toBe("Session id from open_session");
+  });
+  it("never leaks CJK text into the MCP surface", () => {
+    for (const t of tools) {
+      expect(JSON.stringify({ d: t.description, s: t.inputSchema }), t.name).not.toMatch(/[一-鿿]/);
+    }
   });
 });
 
 describe("readToolMode", () => {
-  it("defaults to full", () => {
-    expect(readToolMode({})).toBe("full");
-    expect(readToolMode({ ATWEBPILOT_MCP_TOOLS: "" })).toBe("full");
+  it("defaults to core", () => {
+    expect(readToolMode({})).toBe("core");
+    expect(readToolMode({ ATWEBPILOT_MCP_TOOLS: "" })).toBe("core");
   });
-
-  it("accepts parity", () => {
-    expect(readToolMode({ ATWEBPILOT_MCP_TOOLS: "parity" })).toBe("parity");
+  it("accepts full", () => {
+    expect(readToolMode({ ATWEBPILOT_MCP_TOOLS: "full" })).toBe("full");
   });
-
-  it("falls back to full on an unrecognised value", () => {
-    expect(readToolMode({ ATWEBPILOT_MCP_TOOLS: "nonsense" })).toBe("full");
+  it("falls back to core on an unrecognised value (including the removed parity)", () => {
+    expect(readToolMode({ ATWEBPILOT_MCP_TOOLS: "parity" })).toBe("core");
+    expect(readToolMode({ ATWEBPILOT_MCP_TOOLS: "nonsense" })).toBe("core");
   });
 });

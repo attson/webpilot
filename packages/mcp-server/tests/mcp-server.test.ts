@@ -22,14 +22,15 @@ function deps() {
 }
 
 describe("buildToolList", () => {
-  it("lists skill bundle + 4 control + 55 browser tools, each with inputSchema", () => {
+  it("lists skill bundle + 4 control + the core browser tools by default, each with inputSchema", () => {
     const tools = buildToolList();
-    expect(tools.length).toBe(60);
     const names = tools.map((t) => t.name);
     expect(names).toContain("atwebpilot_skill_read");
     expect(names).toContain("list_tabs");
     expect(names).toContain("open_session");
     expect(names).toContain("browser_click");
+    expect(names).not.toContain("browser_snapshotDOM");
+    expect(tools.length).toBe(1 + 4 + 32);
     for (const t of tools) expect(t.inputSchema).toBeTruthy();
   });
 
@@ -105,7 +106,7 @@ describe("dispatchCall", () => {
     const d = deps();
     const open = await dispatchCall(d, "open_session", { tab_id: "42" });
     const session_id = JSON.parse(textOf(open)).session_id;
-    const r = await dispatchCall(d, "browser_snapshotDOM", { session_id });
+    const r = await dispatchCall(d, "browser_getPageInfo", { session_id });
     expect(r.isError).toBeFalsy();
   });
 
